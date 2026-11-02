@@ -6,7 +6,7 @@ Book endpoints.
   GET    /books/{id}                    one book                                  (public)
   POST   /books                         create a listing                          (login)
   PATCH  /books/{id}                    edit details                              (owner)
-  PATCH  /books/{id}/status             available / reserved / sold               (owner)
+  PATCH  /books/{id}/status             mark sold outside the app                 (owner)
   DELETE /books/{id}                    delete listing + its photos               (owner)
   POST   /books/{id}/images             upload a photo (max 3)                    (owner)
   DELETE /books/{id}/images/{image_id}  remove a photo                            (owner)
@@ -20,9 +20,12 @@ from typing import Optional
 from fastapi import APIRouter, Depends, File, HTTPException, Query, UploadFile, status
 from sqlmodel import Session, col, func, or_, select
 
+from ..blocking import hidden_user_ids
 from ..config import MAX_IMAGES_PER_BOOK, MAX_UPLOAD_MB
 from ..db import get_session
-from ..models import Book, BookCondition, BookImage, BookStatus, College, User, utcnow
+from ..models import (
+    Book, BookCondition, BookImage, BookStatus, BuyRequest, College, Message, Report, RequestStatus, User, utcnow,
+)
 from ..schemas import (
     BookCreate,
     BookImageOut,
@@ -146,6 +149,10 @@ def browse_books(
         filters.append(Book.price >= min_price)
     if max_price is not None:
         filters.append(Book.price <= max_price)
+    if viewer is not None:
+        hidden = hidden_user_ids(db, viewer.id)  # people blocked in either direction
+        if hidden:
+            filters.append(col(Book.seller_id).notin_(hidden))
 
     # 1) How many match in total? (for "Page 2 of 14")
     total = db.exec(select(func.count()).select_from(Book).where(*filters)).one()
@@ -191,7 +198,25 @@ def get_book(
 # ---------------------------------------------------------------- create / edit / delete
 @router.post("", response_model=BookOut, status_code=status.HTTP_201_CREATED)
 def create_book(data: BookCreate, user: User = Depends(get_current_user), db: Session = Depends(get_session)):
-    book = Book(**data.model_dump(), seller_id=user.id, college_id=user.college_id)
+    # Catch accidental double listings: same seller, same title + author, still available.
+    if not data.allow_duplicate:
+        twin = db.exec(
+            select(Book).where(
+                Book.seller_id == user.id,
+                Book.status == BookStatus.available,
+                func.lower(Book.title) == data.title.strip().lower(),
+                func.lower(Book.author) == data.author.strip().lower(),
+            )
+        ).first()
+        if twin:
+            raise HTTPException(
+                status.HTTP_409_CONFLICT,
+                f"You already have this book listed (id {twin.id}). "
+                "If it's a second copy, send allow_duplicate: true.",
+            )
+    fields = data.model_dump(exclude={"allow_duplicate"})
+    fields["title"], fields["author"] = fields["title"].strip(), fields["author"].strip()
+    book = Book(**fields, seller_id=user.id, college_id=user.college_id)
     db.add(book)
     db.commit()
     db.refresh(book)
@@ -222,14 +247,6 @@ def update_book(
     return to_book_out(db, book, user)
 
 
-# Which status changes are allowed. Sold is final.
-ALLOWED_STATUS_CHANGES = {
-    BookStatus.available: {BookStatus.reserved, BookStatus.sold},
-    BookStatus.reserved: {BookStatus.available, BookStatus.sold},
-    BookStatus.sold: set(),
-}
-
-
 @router.patch("/{book_id}/status", response_model=BookOut)
 def change_status(
     book_id: int,
@@ -238,19 +255,24 @@ def change_status(
     db: Session = Depends(get_session),
 ):
     """
-    For now the seller sets this by hand. In step 3, accepting a buy request
-    will set 'reserved' automatically and record who the buyer is.
+    "I sold it outside the app" -> sold. (The only manual change.)
+    Reserving and completing a sale happen through buy requests (/requests),
+    so the book and the conversation always agree.
     """
+    from .requests import reject_other_pending  # imported here to avoid a circular import
+
     book = get_own_book(db, book_id, user)
-    if data.status == book.status:
+    if book.status == BookStatus.sold:
         return to_book_out(db, book, user)
-    if data.status not in ALLOWED_STATUS_CHANGES[book.status]:
+    if book.status == BookStatus.reserved:
         raise HTTPException(
-            status.HTTP_409_CONFLICT, f"Can't change a {book.status.value} book to {data.status.value}."
+            status.HTTP_409_CONFLICT,
+            "This book is reserved for a buyer. Complete or cancel that deal in your requests instead.",
         )
-    book.status = data.status
+    book.status = BookStatus.sold
     book.updated_at = utcnow()
     db.add(book)
+    reject_other_pending(db, book.id, None, "Sorry, this book has been sold.")
     db.commit()
     db.refresh(book)
     return to_book_out(db, book, user)
@@ -259,9 +281,29 @@ def change_status(
 @router.delete("/{book_id}", status_code=status.HTTP_204_NO_CONTENT)
 def delete_book(book_id: int, user: User = Depends(get_current_user), db: Session = Depends(get_session)):
     book = get_own_book(db, book_id, user)
+    requests = db.exec(select(BuyRequest).where(BuyRequest.book_id == book.id)).all()
+    if any(r.status in (RequestStatus.accepted, RequestStatus.completed) for r in requests):
+        raise HTTPException(
+            status.HTTP_409_CONFLICT,
+            "This book has an accepted or completed deal, so it can't be deleted. "
+            "Cancel the deal first, or keep it as sold.",
+        )
+    # Delete in order: things that POINT TO the book first, then the book itself.
+    # (Postgres refuses to delete a row that other rows still point to.)
+    for r in requests:
+        for m in db.exec(select(Message).where(Message.request_id == r.id)).all():
+            db.delete(m)
+    db.flush()
+    for r in requests:
+        db.delete(r)
+    for report in db.exec(select(Report).where(Report.book_id == book.id)).all():
+        report.book_id = None  # keep the report for the admin, note what it was about
+        report.details = f"[deleted listing: {book.title}] " + (report.details or "")
+        db.add(report)
     for img in db.exec(select(BookImage).where(BookImage.book_id == book.id)).all():
         delete_image(img.storage_key)  # remove the actual file, not just the database row
         db.delete(img)
+    db.flush()
     db.delete(book)
     db.commit()
 

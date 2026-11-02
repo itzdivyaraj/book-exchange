@@ -100,16 +100,14 @@ def test_partial_update_changes_only_what_was_sent(client, make_user):
 
 
 # ---------------------------------------------------------------- status rules
-def test_status_flow_and_sold_is_final(client, make_user):
+def test_manual_status_is_only_sold_and_sold_is_final(client, make_user):
+    # Since step 3, "reserved" happens only by accepting a buy request (see test_step3).
     headers, _ = make_user()
     bid = create_book(client, headers)["id"]
     url = f"/books/{bid}/status"
 
-    assert client.patch(url, json={"status": "reserved"}, headers=headers).json()["status"] == "reserved"
-    assert client.patch(url, json={"status": "available"}, headers=headers).json()["status"] == "available"
+    assert client.patch(url, json={"status": "reserved"}, headers=headers).status_code == 422
     assert client.patch(url, json={"status": "sold"}, headers=headers).json()["status"] == "sold"
-
-    assert client.patch(url, json={"status": "available"}, headers=headers).status_code == 409
     assert client.patch(f"/books/{bid}", json={"price": 10}, headers=headers).status_code == 409
 
 

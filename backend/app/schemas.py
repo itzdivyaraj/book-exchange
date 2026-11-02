@@ -80,6 +80,8 @@ class BookCreate(BaseModel):
     condition: BookCondition = BookCondition.good
     price: int = Field(ge=0, le=100000, description="Whole rupees. 0 = free.")
     description: Optional[str] = Field(default=None, max_length=1000)
+    # Set to true only after the user confirms "yes, this is a second copy".
+    allow_duplicate: bool = False
 
 
 class BookUpdate(BaseModel):
@@ -96,7 +98,8 @@ class BookUpdate(BaseModel):
 
 
 class BookStatusUpdate(BaseModel):
-    status: BookStatus
+    # Only "sold" (sold outside the app). Reserved/completed happen through buy requests.
+    status: Literal["sold"]
 
 
 class BookImageOut(BaseModel):
@@ -142,3 +145,67 @@ class BookPage(BaseModel):
 
 
 SortOption = Literal["newest", "oldest", "price_low", "price_high"]
+
+
+# ======================= Step 3: requests, chat, safety =======================
+from .models import ReportReason, RequestStatus  # noqa: E402
+
+
+class BuyRequestCreate(BaseModel):
+    book_id: int
+    message: Optional[str] = Field(default=None, max_length=1000, description="Optional first message to the seller")
+
+
+class PersonOut(BaseModel):
+    id: int
+    name: str
+
+
+class BookSummaryOut(BaseModel):
+    """A small version of a book, for inbox rows."""
+    id: int
+    title: str
+    author: str
+    price: int
+    status: BookStatus
+    image_url: Optional[str] = None
+
+
+class MessageOut(BaseModel):
+    id: int
+    body: str
+    created_at: datetime
+    sender_id: Optional[int]
+    is_mine: bool
+    is_system: bool  # automatic safety/status messages from the app itself
+
+
+class BuyRequestOut(BaseModel):
+    id: int
+    status: RequestStatus
+    my_role: Literal["buyer", "seller"]
+    book: BookSummaryOut
+    buyer: PersonOut
+    seller: PersonOut
+    last_message: Optional[MessageOut] = None
+    unread_count: int
+    created_at: datetime
+    updated_at: datetime
+
+
+class MessageCreate(BaseModel):
+    body: str = Field(min_length=1, max_length=1000)
+
+
+class ReportCreate(BaseModel):
+    """Report a listing (book_id) or a person (user_id) - at least one of them."""
+    book_id: Optional[int] = None
+    user_id: Optional[int] = None
+    reason: ReportReason
+    details: Optional[str] = Field(default=None, max_length=1000)
+
+
+class BlockedUserOut(BaseModel):
+    id: int
+    name: str
+    blocked_at: datetime

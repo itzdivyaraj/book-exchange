@@ -10,6 +10,7 @@ from sqlmodel import Session, select
 
 from ..db import get_session
 from ..models import College, User
+from ..ratelimit import LOGIN_LIMIT, check_rate_limit
 from ..schemas import CollegeOut, LoginIn, SignupIn, TokenOut, UserOut
 from ..security import (
     create_session,
@@ -57,6 +58,11 @@ def signup(data: SignupIn, db: Session = Depends(get_session)):
 
 @router.post("/login", response_model=TokenOut)
 def login(data: LoginIn, db: Session = Depends(get_session)):
+    # Max 10 tries per 5 minutes for one email: stops bots guessing passwords.
+    check_rate_limit(
+        f"login:{data.email.lower()}", *LOGIN_LIMIT,
+        "Too many login attempts. Please wait a few minutes and try again.",
+    )
     user = db.exec(select(User).where(User.email == data.email.lower())).first()
     # Same message for "no such email" and "wrong password", so attackers
     # can't use this form to find out which emails are registered.

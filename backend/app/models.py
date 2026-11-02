@@ -10,7 +10,10 @@ Tables:
   Book          - a listing (step 2)
   BookImage     - photos of a listing, up to 3 (step 2)
 
-Buy requests and messages come in step 3.
+  BuyRequest    - a buyer asking for a book; the chat hangs off this (step 3)
+  Message       - one chat message (step 3)
+  Report        - "this user/listing is a scam/spam/..." (step 3)
+  Block         - "I don't want to hear from this person" (step 3)
 """
 from datetime import datetime, timezone
 from enum import Enum
@@ -109,4 +112,61 @@ class BookImage(SQLModel, table=True):
     url: str          # where the browser loads it from
     storage_key: str  # how WE find it again to delete it (file name, or Cloudinary id later)
     position: int = 0 # display order
+    created_at: datetime = Field(default_factory=utcnow)
+
+
+# ======================= Step 3: requests, chat, safety =======================
+
+class RequestStatus(str, Enum):
+    pending = "pending"      # buyer asked, seller hasn't decided
+    accepted = "accepted"    # seller said yes -> book reserved for this buyer
+    rejected = "rejected"    # seller said no (or another buyer got the book)
+    cancelled = "cancelled"  # buyer withdrew, or the deal fell through
+    completed = "completed"  # handed over -> book sold
+
+
+class BuyRequest(SQLModel, table=True):
+    id: Optional[int] = Field(default=None, primary_key=True)
+    book_id: int = Field(foreign_key="book.id", index=True)
+    buyer_id: int = Field(foreign_key="user.id", index=True)
+    seller_id: int = Field(foreign_key="user.id", index=True)  # copied from the book: quick "my incoming requests"
+    status: RequestStatus = Field(default=RequestStatus.pending, index=True)
+    # When each side last opened the chat. Messages after this = unread.
+    buyer_last_read_at: Optional[datetime] = None
+    seller_last_read_at: Optional[datetime] = None
+    created_at: datetime = Field(default_factory=utcnow)
+    updated_at: datetime = Field(default_factory=utcnow)
+
+
+class Message(SQLModel, table=True):
+    id: Optional[int] = Field(default=None, primary_key=True)
+    request_id: int = Field(foreign_key="buyrequest.id", index=True)
+    sender_id: Optional[int] = Field(default=None, foreign_key="user.id")  # None = automatic system message
+    body: str
+    created_at: datetime = Field(default_factory=utcnow, index=True)
+
+
+class ReportReason(str, Enum):
+    scam = "scam"                    # asked for advance payment, fake listing, etc.
+    spam = "spam"
+    inappropriate = "inappropriate"
+    wrong_info = "wrong_info"        # e.g. wrong book, wrong price, already sold
+    other = "other"
+
+
+class Report(SQLModel, table=True):
+    id: Optional[int] = Field(default=None, primary_key=True)
+    reporter_id: int = Field(foreign_key="user.id", index=True)
+    reported_user_id: Optional[int] = Field(default=None, foreign_key="user.id", index=True)
+    book_id: Optional[int] = Field(default=None, foreign_key="book.id")
+    reason: ReportReason
+    details: Optional[str] = None
+    is_resolved: bool = False        # for the admin dashboard later
+    created_at: datetime = Field(default_factory=utcnow)
+
+
+class Block(SQLModel, table=True):
+    id: Optional[int] = Field(default=None, primary_key=True)
+    blocker_id: int = Field(foreign_key="user.id", index=True)
+    blocked_id: int = Field(foreign_key="user.id", index=True)
     created_at: datetime = Field(default_factory=utcnow)

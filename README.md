@@ -12,8 +12,8 @@ A web app where college students list their used textbooks and other students bu
 |---|---|---|
 | 1 | Backend: login system + college list | ✅ done |
 | 2 | Backend: books (list, search, filter, photos, status) | ✅ done |
-| 3 | Backend: buy requests + chat + report/block | next |
-| 4 | Email verification + forgot password + delete account | |
+| 3 | Backend: buy requests + chat + report/block + rate limits | ✅ done |
+| 4 | Email verification + forgot password + delete account | next |
 | 5 | Backend online (Render + Neon + Cloudinary) | |
 | 6 | React frontend | |
 | 7 | Frontend online (Vercel) + LinkedIn launch | |
@@ -62,7 +62,7 @@ The `/docs` page is generated automatically by FastAPI. Every endpoint has a **T
 ```bash
 pytest -v
 ```
-There are 28 checks: 14 for login and colleges (step 1), 14 for books and photos (step 2). Run them after every change, so you know you haven't broken anything.
+There are 40 checks: 14 for login and colleges (step 1), 14 for books and photos (step 2), 12 for requests, chat and safety (step 3). Run them after every change, so you know you haven't broken anything.
 
 ---
 
@@ -79,16 +79,21 @@ backend/
 │   ├── security.py          bcrypt passwords + login tokens + get_current_user()
 │   ├── college_matching.py  "DU" = "Delhi University" = "University of Delhi" logic
 │   ├── storage.py           Photo safety (check, shrink, strip GPS) + where photos are saved
+│   ├── ratelimit.py         "Max N actions per M seconds" (login, requests, messages, reports)
+│   ├── blocking.py          Block checks shared by books and requests
 │   ├── seed.py              Loads seed_colleges.json into the database
 │   ├── seed_colleges.json   Starter list of colleges + their nicknames (edit to add more)
 │   └── routers/
 │       ├── auth.py          /auth/signup, /auth/login, /auth/me, /auth/logout
 │       ├── colleges.py      /colleges search, get one, add new
-│       └── books.py         /books browse, create, edit, status, delete, photos
+│       ├── books.py         /books browse, create, edit, status, delete, photos
+│       ├── requests.py      /requests buy requests (the deal) + chat
+│       └── safety.py        /reports and /blocks
 ├── tests/
 │   ├── conftest.py          Shared test setup (temporary database + photo folder)
 │   ├── test_step1.py        Login + college checks
-│   └── test_step2_books.py  Book, ownership, search and photo checks
+│   ├── test_step2_books.py  Book, ownership, search and photo checks
+│   └── test_step3_requests.py  Deal flow, chat, unread, blocks, reports, rate limits
 ├── uploads/                 Photos saved locally (created automatically, not in Git)
 ├── requirements.txt         Python packages
 └── .env.example             Settings template
@@ -116,9 +121,9 @@ backend/
 | `GET /books` | public | Browse: `q`, `college_id`, `subject`, `semester`, `condition`, `min_price`, `max_price`, `status`, `sort`, `page`, `page_size` |
 | `GET /books/{id}` | public | One book with photos, seller name and college (never email) |
 | `GET /books/mine` | login | Your listings, including sold |
-| `POST /books` | login | Create a listing (college is taken from your account) |
+| `POST /books` | login | Create a listing (college is taken from your account; same title+author twice needs `allow_duplicate: true`) |
 | `PATCH /books/{id}` | owner | Edit only the fields you send |
-| `PATCH /books/{id}/status` | owner | available ⇄ reserved → sold (sold is final) |
+| `PATCH /books/{id}/status` | owner | Mark **sold** outside the app (reserved/sold otherwise come from buy requests) |
 | `DELETE /books/{id}` | owner | Delete listing and its photo files |
 | `POST /books/{id}/images` | owner | Upload a photo (max 3, max 5 MB) |
 | `DELETE /books/{id}/images/{image_id}` | owner | Remove a photo |
@@ -126,3 +131,34 @@ backend/
 **Authentication vs authorization:** `get_current_user` answers "who are you?" (401 if unknown). `get_own_book` answers "is this yours?" (403 if not).
 
 **Photos:** every upload is checked to be a real image, rotated upright, shrunk to max 1200px, saved as JPEG, and stripped of hidden EXIF data (including GPS location). Only `storage.py` knows where files go, so switching to Cloudinary later touches one file.
+
+## Buy requests and chat (step 3)
+
+```
+pending --accept--> accepted --complete--> completed   (book: available -> reserved -> sold)
+   |                    |
+ reject / cancel      cancel                            (book goes back to available)
+```
+
+| Endpoint | Who | Does |
+|---|---|---|
+| `POST /requests` | buyer | Request a book; opens a chat starting with an automatic safety tip |
+| `GET /requests` | both | Inbox: `role=all/buyer/seller`, `only_open`; each row has last message + unread count |
+| `GET /requests/{id}` | both | One conversation |
+| `POST /requests/{id}/accept` | seller | Book becomes **reserved** for this buyer |
+| `POST /requests/{id}/reject` | seller | Decline a pending request |
+| `POST /requests/{id}/cancel` | buyer (any open) / seller (accepted) | Withdraw or "deal fell through"; book becomes available again |
+| `POST /requests/{id}/complete` | seller | Book becomes **sold**; other waiting buyers are told |
+| `GET /requests/{id}/messages?after_id=N` | both | Read chat; `after_id` returns only newer messages (polling) |
+| `POST /requests/{id}/messages` | both | Send a message (only while pending/accepted) |
+
+People outside a conversation get **404**, so they can't even tell it exists.
+
+## Safety (step 3)
+
+| Endpoint | Does |
+|---|---|
+| `POST /reports` | Report a listing (`book_id`) or person (`user_id`) with a reason: scam, spam, inappropriate, wrong_info, other |
+| `POST /blocks/{user_id}` · `DELETE /blocks/{user_id}` · `GET /blocks` | Block / unblock / list. Blocks work both ways: no requests, no messages, listings hidden |
+
+**Rate limits** (answer **429** with a `Retry-After` header): 10 logins per 5 min per email · 10 buy requests per hour · 20 messages per minute · 10 reports per hour. Counters live in server memory (fine for one server; Redis if we ever run several).

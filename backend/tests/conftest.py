@@ -44,3 +44,12 @@ def make_user(client):
         return {"Authorization": f"Bearer {r.json()['token']}"}, r.json()["user"]
 
     return _make
+
+
+@pytest.fixture(autouse=True)
+def _fresh_rate_limits():
+    """Each test starts with clean rate-limit counters (autouse = applies to every test automatically)."""
+    from app.ratelimit import reset_rate_limits
+
+    reset_rate_limits()
+    yield

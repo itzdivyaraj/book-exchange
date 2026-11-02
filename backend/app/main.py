@@ -5,7 +5,7 @@ It:
   - creates the FastAPI app
   - allows your React site to call it (CORS)
   - creates tables + loads the college list on startup
-  - plugs in the routers (auth, colleges, books)
+  - plugs in the routers (auth, colleges, books, requests & chat, safety)
   - serves uploaded photos at /uploads/... (local only; Cloudinary when live)
 """
 from contextlib import asynccontextmanager
@@ -17,7 +17,7 @@ from fastapi.staticfiles import StaticFiles
 
 from .config import FRONTEND_ORIGINS, UPLOAD_DIR
 from .db import create_db_and_tables
-from .routers import auth, books, colleges
+from .routers import auth, books, colleges, requests, safety
 from .seed import seed_colleges
 
 
@@ -29,7 +29,7 @@ async def lifespan(_app: FastAPI):
     yield
 
 
-app = FastAPI(title="Book Exchange API", version="0.2.0", lifespan=lifespan)
+app = FastAPI(title="Book Exchange API", version="0.3.0", lifespan=lifespan)
 
 # CORS: browsers block a website from calling a different address unless the server allows it.
 # React (localhost:5173) and this API (localhost:8000) count as different addresses.
@@ -44,6 +44,8 @@ app.add_middleware(
 app.include_router(auth.router)
 app.include_router(colleges.router)
 app.include_router(books.router)
+app.include_router(requests.router)
+app.include_router(safety.router)
 
 # Photos saved in the uploads/ folder become viewable at http://127.0.0.1:8000/uploads/<name>.jpg
 Path(UPLOAD_DIR).mkdir(parents=True, exist_ok=True)
