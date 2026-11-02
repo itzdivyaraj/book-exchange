@@ -57,10 +57,10 @@ export default function Browse() {
   return (
     <div>
       <section className="mb-6">
-        <h1 className="text-3xl font-bold sm:text-4xl">Used textbooks, listed by students</h1>
-        <p className="mt-1 max-w-2xl text-ink-soft">
-          List the books you're done with for free, find the ones you need from students near you, and message sellers directly.
-          Book Exchange only connects you: price and pickup are up to you.
+        <h1 className="text-3xl font-bold sm:text-4xl">Books listed by students</h1>
+        <p className="mt-1 text-ink-soft">
+          <span className="block">Find books from students in your city or across India.</span>
+          <span className="block">Message the seller and agree on the price and pickup yourselves.</span>
         </p>
         <form
           className="mt-4 flex gap-2"
