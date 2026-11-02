@@ -3,13 +3,35 @@
 /* Colours and fonts used everywhere (Tailwind v4 "theme" variables). */
 @theme {
   --color-paper: #f7f3ec;     /* page background, like book paper */
+  --color-surface: #ffffff;   /* cards, inputs */
   --color-ink: #1f2a44;       /* main text + primary buttons */
   --color-ink-soft: #55607a;  /* secondary text */
   --color-line: #e4ddd1;      /* borders */
-  --color-accent: #e07a3f;    /* highlights, prices */
-  --color-accent-dark: #b85a24;
+  --color-accent: #e07a3f;    /* highlights, buttons */
+  --color-accent-dark: #b85a24; /* prices, links */
   --font-display: "Fraunces", Georgia, serif;
   --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
+}
+
+/*
+  Dark mode: when <html> has class="dark", the same colour NAMES point to dark values.
+  Every page uses names like bg-paper / text-ink, so nothing else needs to change.
+*/
+.dark {
+  color-scheme: dark; /* dark scrollbars, dropdowns, date pickers */
+  --color-paper: #12161f;
+  --color-surface: #1a2030;
+  --color-ink: #ece6da;
+  --color-ink-soft: #9ba4b6;
+  --color-line: #2b3346;
+  --color-accent-dark: #f2a46f;
+  --color-black: #ffffff; /* so hover:bg-black/5 becomes a light glow instead */
+  /* the tinted alert/badge colours, flipped for dark backgrounds */
+  --color-amber-50: #33260f;  --color-amber-200: #5c4318; --color-amber-700: #f3c27d; --color-amber-800: #f3c27d; --color-amber-900: #f6d29f;
+  --color-emerald-50: #0e2a21; --color-emerald-200: #1b5240; --color-emerald-700: #7fdcb4; --color-emerald-800: #9ae6c4;
+  --color-red-50: #341416;    --color-red-200: #6a2328;   --color-red-700: #f3a2a6;   --color-red-800: #f6b8bb;
+  --color-sky-50: #0e2335;    --color-sky-200: #1d4566;   --color-sky-700: #8fc9f2;
+  --color-stone-100: #232a38; --color-stone-200: #353e50; --color-stone-600: #b6bcc8;
 }
 
 html { background: var(--color-paper); }

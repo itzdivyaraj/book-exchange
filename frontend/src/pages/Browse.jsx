@@ -71,7 +71,7 @@ export default function Browse() {
         </form>
       </section>
 
-      <div className="mb-4 grid gap-3 rounded-xl border border-line bg-white p-3 sm:grid-cols-[1fr_auto_auto] sm:items-center">
+      <div className="mb-4 grid gap-3 rounded-xl border border-line bg-surface p-3 sm:grid-cols-[1fr_auto_auto] sm:items-center">
         <div className="min-w-0">
           <CollegePicker
             value={college}

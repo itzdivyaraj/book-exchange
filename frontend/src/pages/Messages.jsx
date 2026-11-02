@@ -35,7 +35,7 @@ export function Inbox() {
       {!rows ? <Spinner className="mt-12" /> : rows.length === 0 ? (
         <Empty title="No conversations yet">When you request a book, or someone requests yours, the chat appears here.</Empty>
       ) : (
-        <ul className="divide-y divide-line overflow-hidden rounded-xl border border-line bg-white">
+        <ul className="divide-y divide-line overflow-hidden rounded-xl border border-line bg-surface">
           {rows.map((r) => (
             <li key={r.id}>
               <Link to={`/messages/${r.id}`} className="flex items-center gap-3 p-3 hover:bg-paper/60">
@@ -161,7 +161,7 @@ export function Chat() {
 
   return (
     <div className="mx-auto flex max-w-3xl flex-col" style={{ minHeight: 'calc(100vh - 180px)' }}>
-      <div className="rounded-xl border border-line bg-white p-3">
+      <div className="rounded-xl border border-line bg-surface p-3">
         <div className="flex flex-wrap items-center gap-3">
           <Link to="/messages" className="text-sm text-ink-soft hover:text-ink">← Inbox</Link>
           <div className="min-w-0 flex-1">
@@ -190,7 +190,7 @@ export function Chat() {
             <p key={m.id} className="mx-auto max-w-md rounded-lg bg-amber-50 px-3 py-2 text-center text-xs text-amber-900">{m.body}</p>
           ) : (
             <div key={m.id} className={`flex ${m.is_mine ? 'justify-end' : 'justify-start'}`}>
-              <div className={`max-w-[80%] rounded-2xl px-3 py-2 text-sm ${m.is_mine ? 'rounded-br-sm bg-ink text-paper' : 'rounded-bl-sm border border-line bg-white'}`}>
+              <div className={`max-w-[80%] rounded-2xl px-3 py-2 text-sm ${m.is_mine ? 'rounded-br-sm bg-ink text-paper' : 'rounded-bl-sm border border-line bg-surface'}`}>
                 <p className="whitespace-pre-line break-words">{m.body}</p>
                 <p className={`mt-0.5 text-[10px] ${m.is_mine ? 'text-paper/60' : 'text-ink-soft'}`}>{timeAgo(m.created_at)}</p>
               </div>
@@ -204,7 +204,7 @@ export function Chat() {
       {open ? (
         <form onSubmit={send} className="sticky bottom-0 flex gap-2 border-t border-line bg-paper py-3">
           <input
-            className="flex-1 rounded-lg border border-line bg-white px-3 py-2 text-sm focus:border-ink focus:outline-none"
+            className="flex-1 rounded-lg border border-line bg-surface px-3 py-2 text-sm focus:border-ink focus:outline-none"
             placeholder="Write a message…"
             maxLength={1000}
             value={text}

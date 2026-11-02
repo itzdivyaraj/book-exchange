@@ -32,7 +32,7 @@ export default function MyListings() {
       ) : (
         <ul className="space-y-3">
           {books.map((b) => (
-            <li key={b.id} className="flex flex-wrap items-center gap-3 rounded-xl border border-line bg-white p-3">
+            <li key={b.id} className="flex flex-wrap items-center gap-3 rounded-xl border border-line bg-surface p-3">
               <Link to={`/books/${b.id}`}><BookCover book={b} className="h-16 w-20 rounded-lg" /></Link>
               <div className="min-w-0 flex-1">
                 <Link to={`/books/${b.id}`} className="font-medium hover:underline">{b.title}</Link>

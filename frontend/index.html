@@ -8,6 +8,14 @@
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,600;9..144,700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet" />
+    <script>
+      // Apply the saved theme BEFORE the page draws, so it doesn't flash white in dark mode.
+      // No saved choice yet? Follow the phone/laptop setting.
+      try {
+        var t = localStorage.getItem('bx_theme')
+        if (t === 'dark' || (!t && matchMedia('(prefers-color-scheme: dark)').matches)) document.documentElement.classList.add('dark')
+      } catch (e) {}
+    </script>
     <title>Book Exchange · Used textbooks from your campus</title>
   </head>
   <body>

@@ -153,7 +153,7 @@ function Photos({ book, onChange }) {
         {book.images.map((img) => (
           <div key={img.id} className="relative">
             <img src={img.url} alt="" className="h-28 w-36 rounded-lg border border-line object-cover" />
-            <button onClick={() => remove(img.id)} className="absolute right-1 top-1 rounded-full bg-white/90 px-2 text-xs font-medium text-red-700 shadow" aria-label="Remove photo">
+            <button onClick={() => remove(img.id)} className="absolute right-1 top-1 rounded-full bg-surface/90 px-2 text-xs font-medium text-red-700 shadow" aria-label="Remove photo">
               Remove
             </button>
           </div>

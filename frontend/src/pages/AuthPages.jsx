@@ -157,7 +157,7 @@ export function VerifyEmail() {
             pattern="\d{6}"
             required
             placeholder="123456"
-            className="w-full rounded-lg border border-line bg-white px-3 py-3 text-center font-mono text-2xl tracking-[0.5em]"
+            className="w-full rounded-lg border border-line bg-surface px-3 py-3 text-center font-mono text-2xl tracking-[0.5em]"
             value={code}
             onChange={(e) => setCode(e.target.value.replace(/\D/g, ''))}
           />

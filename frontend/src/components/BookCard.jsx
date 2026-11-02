@@ -7,8 +7,8 @@ export function BookCover({ book, className = '' }) {
     <img src={url} alt={book.title} className={`object-cover ${className}`} loading="lazy" />
   ) : (
     // No photo: a simple "book spine" placeholder with the title
-    <div className={`flex items-center justify-center bg-gradient-to-br from-ink to-[#2f3d5f] p-3 text-center ${className}`}>
-      <span className="line-clamp-3 font-display text-sm text-paper/90">{book.title}</span>
+    <div className={`flex items-center justify-center bg-gradient-to-br from-[#1f2a44] to-[#3b4a6e] p-3 text-center ${className}`}>
+      <span className="line-clamp-3 font-display text-sm text-[#f4efe6]">{book.title}</span>
     </div>
   )
 }
@@ -17,7 +17,7 @@ export default function BookCard({ book }) {
   return (
     <Link
       to={`/books/${book.id}`}
-      className="group flex flex-col overflow-hidden rounded-xl border border-line bg-white transition hover:-translate-y-0.5 hover:shadow-md"
+      className="group flex flex-col overflow-hidden rounded-xl border border-line bg-surface transition hover:-translate-y-0.5 hover:shadow-md"
     >
       <BookCover book={book} className="aspect-[4/3] w-full" />
       <div className="flex flex-1 flex-col gap-1 p-3">

@@ -4,8 +4,8 @@ export function Button({ variant = 'primary', loading = false, className = '', c
   const styles = {
     primary: 'bg-ink text-paper hover:bg-ink/90',
     accent: 'bg-accent text-white hover:bg-accent-dark',
-    secondary: 'bg-white text-ink border border-line hover:border-ink/40',
-    danger: 'bg-white text-red-700 border border-red-200 hover:bg-red-50',
+    secondary: 'bg-surface text-ink border border-line hover:border-ink/40',
+    danger: 'bg-surface text-red-700 border border-red-200 hover:bg-red-50',
     ghost: 'text-ink-soft hover:text-ink hover:bg-black/5',
   }
   return (
@@ -22,7 +22,7 @@ export function Button({ variant = 'primary', loading = false, className = '', c
 }
 
 const fieldClass =
-  'w-full rounded-lg border border-line bg-white px-3 py-2 text-sm text-ink placeholder:text-ink-soft/60 focus:border-ink focus:outline-none focus:ring-2 focus:ring-ink/10'
+  'w-full rounded-lg border border-line bg-surface px-3 py-2 text-sm text-ink placeholder:text-ink-soft/60 focus:border-ink focus:outline-none focus:ring-2 focus:ring-ink/10'
 
 export function Field({ label, hint, children }) {
   return (
@@ -65,12 +65,12 @@ export function Spinner({ className = '' }) {
 }
 
 export function Card({ className = '', children }) {
-  return <div className={`rounded-xl border border-line bg-white p-5 ${className}`}>{children}</div>
+  return <div className={`rounded-xl border border-line bg-surface p-5 ${className}`}>{children}</div>
 }
 
 export function Empty({ title, children }) {
   return (
-    <div className="rounded-xl border border-dashed border-line bg-white/60 px-6 py-12 text-center">
+    <div className="rounded-xl border border-dashed border-line bg-surface/60 px-6 py-12 text-center">
       <p className="font-display text-lg">{title}</p>
       {children && <div className="mt-2 text-sm text-ink-soft">{children}</div>}
     </div>

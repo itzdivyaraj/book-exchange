@@ -22,7 +22,7 @@ export default function CollegePicker({ value, onChange, allowAdd = true, placeh
 
   if (value) {
     return (
-      <div className="flex items-center justify-between gap-2 rounded-lg border border-line bg-white px-3 py-2 text-sm">
+      <div className="flex items-center justify-between gap-2 rounded-lg border border-line bg-surface px-3 py-2 text-sm">
         <span>
           <span className="font-medium">{value.name}</span>
           {value.city && <span className="text-ink-soft"> · {value.city}</span>}
@@ -62,7 +62,7 @@ export default function CollegePicker({ value, onChange, allowAdd = true, placeh
         aria-expanded={open}
       />
       {open && query.trim() && (
-        <ul className="absolute z-30 mt-1 max-h-72 w-full overflow-auto rounded-lg border border-line bg-white py-1 shadow-lg" role="listbox">
+        <ul className="absolute z-30 mt-1 max-h-72 w-full overflow-auto rounded-lg border border-line bg-surface py-1 shadow-lg" role="listbox">
           {results.map((c) => (
             <li key={c.id}>
               <button
@@ -132,7 +132,7 @@ function AddCollege({ initialName, onDone }) {
         <div className="space-y-2">
           <p className="text-sm">Did you mean one of these?</p>
           {suggestions.map((c) => (
-            <button key={c.id} type="button" className="block w-full rounded-lg border border-line bg-white px-3 py-2 text-left text-sm hover:border-ink/40" onClick={() => onDone(c)}>
+            <button key={c.id} type="button" className="block w-full rounded-lg border border-line bg-surface px-3 py-2 text-left text-sm hover:border-ink/40" onClick={() => onDone(c)}>
               {c.name} {c.city && <span className="text-ink-soft">· {c.city}</span>}
             </button>
           ))}

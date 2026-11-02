@@ -55,7 +55,7 @@ export default function BookDetail() {
       <div>
         {images.length ? (
           <>
-            <img src={images[photo]?.url} alt={book.title} className="aspect-[4/3] w-full rounded-xl border border-line bg-white object-contain" />
+            <img src={images[photo]?.url} alt={book.title} className="aspect-[4/3] w-full rounded-xl border border-line bg-surface object-contain" />
             {images.length > 1 && (
               <div className="mt-2 flex gap-2">
                 {images.map((img, i) => (
@@ -82,7 +82,7 @@ export default function BookDetail() {
           <p className="mt-3 font-display text-3xl font-bold text-accent-dark">{formatPrice(book.price)}</p>
         </div>
 
-        <dl className="grid grid-cols-2 gap-x-4 gap-y-2 rounded-xl border border-line bg-white p-4 text-sm">
+        <dl className="grid grid-cols-2 gap-x-4 gap-y-2 rounded-xl border border-line bg-surface p-4 text-sm">
           <dt className="text-ink-soft">Condition</dt><dd>{CONDITIONS[book.condition]}</dd>
           {book.subject && <><dt className="text-ink-soft">Subject</dt><dd>{book.subject}</dd></>}
           {book.semester && <><dt className="text-ink-soft">Semester</dt><dd>{book.semester}</dd></>}
