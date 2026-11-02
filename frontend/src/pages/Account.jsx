@@ -105,7 +105,7 @@ function DeleteAccount({ onDeleted }) {
     <Card className="border-red-200">
       <h2 className="text-xl font-bold text-red-800">Delete account</h2>
       <p className="mt-1 text-sm text-ink-soft">
-        Your name, email and messages are erased. Unsold listings and all photos are deleted, and open deals are cancelled. This can't be undone.
+        Your name, email and messages are erased, and your unsold listings and all your photos are deleted. People you were chatting with will see that you left. This can't be undone.
       </p>
       {!open ? (
         <Button variant="danger" className="mt-3" onClick={() => setOpen(true)}>Delete my account…</Button>

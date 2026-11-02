@@ -53,7 +53,7 @@ def add_college(data: CollegeCreate, db: Session = Depends(get_session)):
 
     college = College(
         name=" ".join(data.name.split()),  # tidy extra spaces
-        city=data.city.strip() if data.city else None,
+        city=" ".join(data.city.split()).title(),
         state=data.state.strip() if data.state else None,
         normalized_name=normalize(data.name),
         is_verified=False,

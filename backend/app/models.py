@@ -10,7 +10,7 @@ Tables:
   Book          - a listing (step 2)
   BookImage     - photos of a listing, up to 3 (step 2)
 
-  BuyRequest    - a buyer asking for a book; the chat hangs off this (step 3)
+  Conversation  - a chat between a buyer and a seller about one book (step 3)
   Message       - one chat message (step 3)
   Report        - "this user/listing is a scam/spam/..." (step 3)
   Block         - "I don't want to hear from this person" (step 3)
@@ -21,6 +21,7 @@ from datetime import datetime, timezone
 from enum import Enum
 from typing import Optional
 
+from sqlalchemy import UniqueConstraint
 from sqlmodel import Field, SQLModel
 
 
@@ -80,9 +81,8 @@ class BookCondition(str, Enum):
 
 
 class BookStatus(str, Enum):
-    available = "available"  # anyone can request it
-    reserved = "reserved"    # seller agreed with a buyer, meetup pending
-    sold = "sold"            # done; final
+    available = "available"  # shown in Browse; people can message the seller
+    sold = "sold"            # seller marked it sold (can switch back if a deal falls through)
 
 
 class Book(SQLModel, table=True):
@@ -92,6 +92,8 @@ class Book(SQLModel, table=True):
     # is a simple filter on this table instead of a join through users.
     college_id: int = Field(foreign_key="college.id", index=True)
 
+    # Where the book can be picked up. Starts as the seller's college city, but they can change it.
+    city: str = Field(index=True)
     title: str = Field(index=True)
     author: str = Field(index=True)
     edition: Optional[str] = None
@@ -103,7 +105,6 @@ class Book(SQLModel, table=True):
     description: Optional[str] = None
 
     status: BookStatus = Field(default=BookStatus.available, index=True)
-    buyer_id: Optional[int] = Field(default=None, foreign_key="user.id")  # filled in step 3
 
     created_at: datetime = Field(default_factory=utcnow, index=True)
     updated_at: datetime = Field(default_factory=utcnow)
@@ -119,32 +120,28 @@ class BookImage(SQLModel, table=True):
     created_at: datetime = Field(default_factory=utcnow)
 
 
-# ======================= Step 3: requests, chat, safety =======================
+# ======================= Step 3: conversations, safety =======================
+# Book Exchange is a listing site: it connects buyers and sellers, who then agree on
+# price, place and payment themselves in the chat. So a conversation has no "deal status".
 
-class RequestStatus(str, Enum):
-    pending = "pending"      # buyer asked, seller hasn't decided
-    accepted = "accepted"    # seller said yes -> book reserved for this buyer
-    rejected = "rejected"    # seller said no (or another buyer got the book)
-    cancelled = "cancelled"  # buyer withdrew, or the deal fell through
-    completed = "completed"  # handed over -> book sold
+class Conversation(SQLModel, table=True):
+    # One conversation per (book, buyer). Messaging the same seller about the same book reopens it.
+    __table_args__ = (UniqueConstraint("book_id", "buyer_id"),)
 
-
-class BuyRequest(SQLModel, table=True):
     id: Optional[int] = Field(default=None, primary_key=True)
     book_id: int = Field(foreign_key="book.id", index=True)
     buyer_id: int = Field(foreign_key="user.id", index=True)
-    seller_id: int = Field(foreign_key="user.id", index=True)  # copied from the book: quick "my incoming requests"
-    status: RequestStatus = Field(default=RequestStatus.pending, index=True)
+    seller_id: int = Field(foreign_key="user.id", index=True)  # copied from the book: quick "chats about my books"
     # When each side last opened the chat. Messages after this = unread.
     buyer_last_read_at: Optional[datetime] = None
     seller_last_read_at: Optional[datetime] = None
     created_at: datetime = Field(default_factory=utcnow)
-    updated_at: datetime = Field(default_factory=utcnow)
+    updated_at: datetime = Field(default_factory=utcnow)  # last activity: sorts the inbox
 
 
 class Message(SQLModel, table=True):
     id: Optional[int] = Field(default=None, primary_key=True)
-    request_id: int = Field(foreign_key="buyrequest.id", index=True)
+    conversation_id: int = Field(foreign_key="conversation.id", index=True)
     sender_id: Optional[int] = Field(default=None, foreign_key="user.id")  # None = automatic system message
     body: str
     created_at: datetime = Field(default_factory=utcnow, index=True)

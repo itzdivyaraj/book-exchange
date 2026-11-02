@@ -31,7 +31,7 @@ export default function BookCard({ book }) {
           {book.semester && <span className="rounded bg-paper px-1.5 py-0.5">Sem {book.semester}</span>}
           {book.status !== 'available' && <StatusBadge status={book.status} />}
         </div>
-        <p className="line-clamp-1 text-xs text-ink-soft">{book.college.name}</p>
+        <p className="line-clamp-1 text-xs text-ink-soft"><span className="font-medium text-ink">{book.city}</span> · {book.college.name}</p>
       </div>
     </Link>
   )

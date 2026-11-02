@@ -11,12 +11,11 @@ export default function MyListings() {
   const load = () => api('/books/mine').then(setBooks).catch((e) => setError(e.message))
   useEffect(() => { load() }, [])
 
-  const markSold = async (b) => {
-    if (!confirm(`Mark "${b.title}" as sold outside the app? Anyone waiting will be told it's gone.`)) return
-    try { await api(`/books/${b.id}/status`, { method: 'PATCH', body: { status: 'sold' } }); load() } catch (e) { setError(e.message) }
+  const setStatus = async (b, status) => {
+    try { await api(`/books/${b.id}/status`, { method: 'PATCH', body: { status } }); load() } catch (e) { setError(e.message) }
   }
   const remove = async (b) => {
-    if (!confirm(`Delete "${b.title}"? This also removes its photos and any waiting requests.`)) return
+    if (!confirm(`Delete "${b.title}"? This also removes its photos and the chats about it.`)) return
     try { await api(`/books/${b.id}`, { method: 'DELETE' }); load() } catch (e) { setError(e.message) }
   }
 
@@ -36,14 +35,19 @@ export default function MyListings() {
               <Link to={`/books/${b.id}`}><BookCover book={b} className="h-16 w-20 rounded-lg" /></Link>
               <div className="min-w-0 flex-1">
                 <Link to={`/books/${b.id}`} className="font-medium hover:underline">{b.title}</Link>
-                <p className="text-sm text-ink-soft">{formatPrice(b.price)} · listed {timeAgo(b.created_at)}</p>
+                <p className="text-sm text-ink-soft">{formatPrice(b.price)} · {b.city} · listed {timeAgo(b.created_at)}</p>
               </div>
               <StatusBadge status={b.status} />
               <div className="flex gap-2">
-                {b.status !== 'sold' && <Link to={`/books/${b.id}/edit`}><Button variant="secondary">Edit</Button></Link>}
-                {b.status === 'available' && <Button variant="secondary" onClick={() => markSold(b)}>Sold elsewhere</Button>}
-                {b.status === 'reserved' && <Link to="/messages?role=seller"><Button variant="secondary">See deal</Button></Link>}
-                {b.status !== 'reserved' && <Button variant="danger" onClick={() => remove(b)}>Delete</Button>}
+                {b.status === 'available' ? (
+                  <>
+                    <Link to={`/books/${b.id}/edit`}><Button variant="secondary">Edit</Button></Link>
+                    <Button variant="secondary" onClick={() => setStatus(b, 'sold')}>Mark sold</Button>
+                  </>
+                ) : (
+                  <Button variant="secondary" onClick={() => setStatus(b, 'available')}>Mark available</Button>
+                )}
+                <Button variant="danger" onClick={() => remove(b)}>Delete</Button>
               </div>
             </li>
           ))}

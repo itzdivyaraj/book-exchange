@@ -23,8 +23,8 @@ from ..config import CODE_MINUTES
 from ..db import get_session
 from ..emailer import send_reset_code, send_verification_code
 from ..models import (
-    AuthSession, Block, Book, BookImage, BookStatus, BuyRequest, CodePurpose, College, EmailCode,
-    Message, RequestStatus, User, utcnow,
+    AuthSession, Block, Book, BookImage, BookStatus, CodePurpose, College, Conversation, EmailCode,
+    Message, User, utcnow,
 )
 from ..ratelimit import (
     FORGOT_LIMIT, LOGIN_LIMIT, RESEND_CODE_HOURLY, RESEND_CODE_LIMIT, check_rate_limit,
@@ -211,32 +211,23 @@ def delete_account(data: DeleteAccountIn, user: User = Depends(get_current_user)
     (Deleting the user row outright would break every conversation they were part of.)
     """
     from .books import remove_book  # imported here to avoid a circular import
-    from .requests import add_system_message
+    from .conversations import add_system_message
 
     if not verify_password(data.password, user.password_hash):
         raise HTTPException(status.HTTP_400_BAD_REQUEST, "Wrong password.")
     uid = user.id
 
-    # 1. Close their open deals and tell the other person.
-    open_reqs = db.exec(
-        select(BuyRequest).where(
-            or_(BuyRequest.buyer_id == uid, BuyRequest.seller_id == uid),
-            col(BuyRequest.status).in_([RequestStatus.pending, RequestStatus.accepted]),
-        )
-    ).all()
-    for r in open_reqs:
-        if r.status == RequestStatus.accepted:
-            book = db.get(Book, r.book_id)
-            book.status = BookStatus.available
-            book.buyer_id = None
-            db.add(book)
-        r.status = RequestStatus.cancelled
-        r.updated_at = utcnow()
-        db.add(r)
-        add_system_message(db, r.id, "This person deleted their account. The conversation is closed.")
+    # 1. Tell everyone they were chatting with.
+    for c in db.exec(
+        select(Conversation).where(or_(Conversation.buyer_id == uid, Conversation.seller_id == uid))
+    ).all():
+        add_system_message(db, c.id, "This person deleted their account. You can't reply here any more.")
+        c.updated_at = utcnow()
+        db.add(c)
     db.flush()
 
-    # 2. Their listings: unsold ones are removed completely; sold ones stay as history, minus photos.
+    # 2. Their listings: unsold ones are removed completely (with their chats); sold ones stay as
+    #    history for the people who chatted about them, minus photos and description.
     for book in db.exec(select(Book).where(Book.seller_id == uid)).all():
         if book.status == BookStatus.sold:
             for img in db.exec(select(BookImage).where(BookImage.book_id == book.id)).all():

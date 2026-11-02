@@ -47,7 +47,7 @@ def reset_rate_limits() -> None:
 
 # The limits, in one place so they're easy to tune.
 LOGIN_LIMIT = (10, 5 * 60)        # 10 attempts per 5 minutes, per email
-REQUEST_LIMIT = (10, 60 * 60)     # 10 buy requests per hour, per user
+CONVERSATION_LIMIT = (10, 60 * 60) # 10 new conversations per hour, per user
 MESSAGE_LIMIT = (20, 60)          # 20 messages per minute, per user
 REPORT_LIMIT = (10, 60 * 60)      # 10 reports per hour, per user
 RESEND_CODE_LIMIT = (1, 60)       # 1 new verification code per minute, per user

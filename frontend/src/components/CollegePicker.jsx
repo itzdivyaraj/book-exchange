@@ -109,7 +109,7 @@ function AddCollege({ initialName, onDone }) {
     setBusy(true)
     setError('')
     try {
-      const r = await api('/colleges', { method: 'POST', body: { ...form, confirm_new: confirmNew } })
+      const r = await api('/colleges', { method: 'POST', body: { ...form, state: form.state || null, confirm_new: confirmNew } })
       if (r.college) return onDone(r.college) // created, or it already existed under another name
       setSuggestions(r.suggestions)           // close matches: ask "did you mean...?"
     } catch (e) {
@@ -124,7 +124,7 @@ function AddCollege({ initialName, onDone }) {
       <p className="text-sm font-medium">Add your college</p>
       <Input placeholder="Full college name" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} />
       <div className="grid grid-cols-2 gap-2">
-        <Input placeholder="City" value={form.city} onChange={(e) => setForm({ ...form, city: e.target.value })} />
+        <Input placeholder="City *" value={form.city} onChange={(e) => setForm({ ...form, city: e.target.value })} />
         <Input placeholder="State" value={form.state} onChange={(e) => setForm({ ...form, state: e.target.value })} />
       </div>
       <Alert>{error}</Alert>
@@ -142,7 +142,7 @@ function AddCollege({ initialName, onDone }) {
         </div>
       ) : (
         <div className="flex gap-2">
-          <Button type="button" loading={busy} disabled={form.name.trim().length < 3} onClick={() => submit(false)}>
+          <Button type="button" loading={busy} disabled={form.name.trim().length < 3 || form.city.trim().length < 2} onClick={() => submit(false)}>
             Add college
           </Button>
           <Button type="button" variant="ghost" onClick={() => onDone(null)}>Cancel</Button>

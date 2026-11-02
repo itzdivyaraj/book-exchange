@@ -1,20 +1,23 @@
-// "Sell a book" (new) and "Edit listing" (existing, + photos).
+// "Sell a book" (new, photos included) and "Edit listing" (existing, + photo manager).
 import { useEffect, useRef, useState } from 'react'
-import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom'
+import { Link, useLocation, useNavigate, useParams } from 'react-router-dom'
 import { api } from '../api'
 import { useAuth } from '../auth'
 import { Alert, Button, CONDITIONS, Card, Field, Input, Select, Spinner, Textarea } from '../components/ui'
 
-const EMPTY = { title: '', author: '', edition: '', isbn: '', subject: '', semester: '', condition: 'good', price: '', description: '' }
+const EMPTY = { title: '', author: '', price: '', city: '', edition: '', isbn: '', subject: '', semester: '', condition: 'good', description: '' }
+const MAX_PHOTOS = 3
+const MAX_MB = 5
 
 export default function BookForm() {
   const { id } = useParams()
   const isEdit = !!id
   const { user } = useAuth()
   const navigate = useNavigate()
-  const [params] = useSearchParams()
-  const [form, setForm] = useState(EMPTY)
+  const photoErrors = useLocation().state?.photoErrors || []
+  const [form, setForm] = useState({ ...EMPTY, city: user.college.city || '' })
   const [book, setBook] = useState(null)
+  const [photos, setPhotos] = useState([]) // new listing only: files picked before saving
   const [loading, setLoading] = useState(isEdit)
   const [error, setError] = useState('')
   const [saved, setSaved] = useState('')
@@ -36,6 +39,8 @@ export default function BookForm() {
   if (!user.email_verified)
     return <Alert kind="info">Verify your email before listing books. <Link to="/verify" className="font-semibold underline">Enter your code</Link></Alert>
   if (loading) return <Spinner className="mt-24" />
+  if (isEdit && book?.status === 'sold')
+    return <Alert kind="info">This book is marked sold. Mark it available again in <Link to="/my-listings" className="font-semibold underline">My listings</Link> to edit it.</Alert>
 
   const set = (k) => (e) => setForm({ ...form, [k]: e.target.value })
 
@@ -56,7 +61,14 @@ export default function BookForm() {
         setSaved('Saved.')
       } else {
         const b = await api('/books', { method: 'POST', body: { ...payload(), allow_duplicate: allowDuplicate } })
-        navigate(`/books/${b.id}/edit?new=1`, { replace: true }) // next: add photos
+        // Upload the photos picked on this form, one by one, then open the new listing.
+        const failed = []
+        for (const file of photos) {
+          const fd = new FormData()
+          fd.append('file', file)
+          try { await api(`/books/${b.id}/images`, { method: 'POST', form: fd }) } catch (err) { failed.push(`${file.name}: ${err.message}`) }
+        }
+        navigate(`/books/${b.id}${failed.length ? '/edit' : ''}`, { replace: true, state: { photoErrors: failed } })
       }
     } catch (err) {
       // 409 on create = "you already listed this". Ask before listing a second copy.
@@ -70,30 +82,34 @@ export default function BookForm() {
   return (
     <div className="mx-auto max-w-2xl">
       <h1 className="text-3xl font-bold">{isEdit ? 'Edit listing' : 'Sell a book'}</h1>
-      {params.get('new') && <Alert kind="success" className="mt-3">Your book is listed! Add up to 3 photos below. Listings with photos get more requests.</Alert>}
+      {!isEdit && <p className="mt-1 text-sm text-ink-soft">Listing is free. Interested students will message you here.</p>}
 
-      {isEdit && book && <Photos book={book} onChange={setBook} />}
+      {photoErrors.length > 0 && <Alert className="mt-3">Your book is listed, but some photos didn't upload: {photoErrors.join(' · ')}. You can add them again below.</Alert>}
+      {isEdit && book && <PhotoManager book={book} onChange={setBook} />}
 
       <Card className="mt-5">
         <form onSubmit={submit} className="grid gap-4 sm:grid-cols-2">
           <div className="sm:col-span-2"><Field label="Title *"><Input required minLength={2} maxLength={200} value={form.title} onChange={set('title')} placeholder="Concepts of Physics Vol 1" /></Field></div>
           <Field label="Author *"><Input required minLength={2} maxLength={150} value={form.author} onChange={set('author')} placeholder="H C Verma" /></Field>
           <Field label="Price (₹) *" hint="0 = giving it away free"><Input required type="number" min="0" max="100000" value={form.price} onChange={set('price')} /></Field>
+          <Field label="City *" hint="Where the book can be picked up"><Input required minLength={2} maxLength={80} value={form.city} onChange={set('city')} placeholder="Delhi" /></Field>
           <Field label="Condition">
             <Select value={form.condition} onChange={set('condition')}>
               {Object.entries(CONDITIONS).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
             </Select>
           </Field>
+          <Field label="Subject"><Input maxLength={100} value={form.subject} onChange={set('subject')} placeholder="Physics" /></Field>
           <Field label="Semester">
             <Select value={form.semester} onChange={set('semester')}>
               <option value="">Not specific</option>
               {Array.from({ length: 12 }, (_, i) => <option key={i + 1} value={i + 1}>Semester {i + 1}</option>)}
             </Select>
           </Field>
-          <Field label="Subject"><Input maxLength={100} value={form.subject} onChange={set('subject')} placeholder="Physics" /></Field>
           <Field label="Edition"><Input maxLength={50} value={form.edition} onChange={set('edition')} placeholder="2022" /></Field>
-          <div className="sm:col-span-2"><Field label="ISBN"><Input maxLength={20} value={form.isbn} onChange={set('isbn')} /></Field></div>
-          <div className="sm:col-span-2"><Field label="Description" hint="Highlighting, missing pages, where you can meet…"><Textarea maxLength={1000} value={form.description} onChange={set('description')} /></Field></div>
+          <Field label="ISBN" hint="The number above the barcode on the back cover"><Input maxLength={20} value={form.isbn} onChange={set('isbn')} /></Field>
+          <div className="sm:col-span-2"><Field label="Description" hint="Highlighting, missing pages, anything a buyer should know"><Textarea maxLength={1000} value={form.description} onChange={set('description')} /></Field></div>
+
+          {!isEdit && <div className="sm:col-span-2"><PhotoPicker files={photos} onChange={setPhotos} /></div>}
 
           <div className="space-y-2 sm:col-span-2">
             <Alert>{error}</Alert>
@@ -107,7 +123,7 @@ export default function BookForm() {
                 </div>
               </Alert>
             ) : (
-              <Button type="submit" loading={busy} variant="accent">{isEdit ? 'Save changes' : 'List book'}</Button>
+              <Button type="submit" loading={busy} variant="accent">{isEdit ? 'Save changes' : busy ? 'Listing…' : 'List book'}</Button>
             )}
           </div>
         </form>
@@ -116,7 +132,56 @@ export default function BookForm() {
   )
 }
 
-function Photos({ book, onChange }) {
+// New listing: pick up to 3 photos before saving (they upload right after the book is created).
+function PhotoPicker({ files, onChange }) {
+  const [error, setError] = useState('')
+  const input = useRef()
+  const [previews, setPreviews] = useState([])
+
+  useEffect(() => {
+    const urls = files.map((f) => URL.createObjectURL(f))
+    setPreviews(urls)
+    return () => urls.forEach((u) => URL.revokeObjectURL(u)) // free memory when photos change
+  }, [files])
+
+  const add = (picked) => {
+    setError('')
+    const ok = [...picked].filter((f) => {
+      if (!/^image\/(jpeg|png|webp)$/.test(f.type)) { setError(`${f.name} isn't a JPG, PNG or WEBP photo.`); return false }
+      if (f.size > MAX_MB * 1024 * 1024) { setError(`${f.name} is over ${MAX_MB} MB.`); return false }
+      return true
+    })
+    onChange([...files, ...ok].slice(0, MAX_PHOTOS))
+    input.current.value = ''
+  }
+
+  return (
+    <div>
+      <span className="mb-1 block text-sm font-medium">Photos <span className="font-normal text-ink-soft">({files.length}/{MAX_PHOTOS})</span></span>
+      <div className="flex flex-wrap gap-3">
+        {previews.map((url, i) => (
+          <div key={url} className="relative">
+            <img src={url} alt="" className="h-24 w-32 rounded-lg border border-line object-cover" />
+            <button type="button" onClick={() => onChange(files.filter((_, j) => j !== i))} className="absolute right-1 top-1 rounded-full bg-surface/90 px-2 text-xs font-medium text-red-700 shadow" aria-label="Remove photo">
+              Remove
+            </button>
+          </div>
+        ))}
+        {files.length < MAX_PHOTOS && (
+          <label className="flex h-24 w-32 cursor-pointer flex-col items-center justify-center rounded-lg border-2 border-dashed border-line text-sm text-ink-soft hover:border-ink/40">
+            + Add photo
+            <input ref={input} type="file" multiple accept="image/jpeg,image/png,image/webp" className="hidden" onChange={(e) => add(e.target.files)} aria-label="Add photos" />
+          </label>
+        )}
+      </div>
+      <span className="mt-1 block text-xs text-ink-soft">JPG, PNG or WEBP, up to {MAX_MB} MB each. Location data is removed automatically.</span>
+      <Alert className="mt-2">{error}</Alert>
+    </div>
+  )
+}
+
+// Existing listing: photos are saved immediately.
+function PhotoManager({ book, onChange }) {
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
   const fileInput = useRef()
@@ -125,10 +190,10 @@ function Photos({ book, onChange }) {
     if (!file) return
     setBusy(true)
     setError('')
-    const form = new FormData()
-    form.append('file', file)
+    const fd = new FormData()
+    fd.append('file', file)
     try {
-      onChange(await api(`/books/${book.id}/images`, { method: 'POST', form }))
+      onChange(await api(`/books/${book.id}/images`, { method: 'POST', form: fd }))
     } catch (e) {
       setError(e.message)
     } finally {
@@ -138,17 +203,12 @@ function Photos({ book, onChange }) {
   }
 
   const remove = async (imageId) => {
-    try {
-      onChange(await api(`/books/${book.id}/images/${imageId}`, { method: 'DELETE' }))
-    } catch (e) {
-      setError(e.message)
-    }
+    try { onChange(await api(`/books/${book.id}/images/${imageId}`, { method: 'DELETE' })) } catch (e) { setError(e.message) }
   }
 
   return (
     <Card className="mt-5">
-      <p className="font-medium">Photos <span className="text-sm font-normal text-ink-soft">({book.images.length}/3)</span></p>
-      <p className="text-xs text-ink-soft">JPG, PNG or WEBP, up to 5 MB. Location data is removed automatically.</p>
+      <p className="font-medium">Photos <span className="text-sm font-normal text-ink-soft">({book.images.length}/{MAX_PHOTOS})</span></p>
       <div className="mt-3 flex flex-wrap gap-3">
         {book.images.map((img) => (
           <div key={img.id} className="relative">
@@ -158,7 +218,7 @@ function Photos({ book, onChange }) {
             </button>
           </div>
         ))}
-        {book.images.length < 3 && (
+        {book.images.length < MAX_PHOTOS && (
           <label className="flex h-28 w-36 cursor-pointer flex-col items-center justify-center rounded-lg border-2 border-dashed border-line text-sm text-ink-soft hover:border-ink/40">
             {busy ? 'Uploading…' : '+ Add photo'}
             <input ref={fileInput} type="file" accept="image/jpeg,image/png,image/webp" className="hidden" disabled={busy} onChange={(e) => upload(e.target.files[0])} />

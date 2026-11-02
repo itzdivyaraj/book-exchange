@@ -2,7 +2,7 @@
 
 Revision ID: 0001
 Revises: 
-Create Date: 2026-11-02 12:43:58.903608
+Create Date: 2026-11-02 17:14:48.841152
 """
 from typing import Sequence, Union
 
@@ -90,6 +90,7 @@ def upgrade() -> None:
     sa.Column('id', sa.Integer(), nullable=False),
     sa.Column('seller_id', sa.Integer(), nullable=False),
     sa.Column('college_id', sa.Integer(), nullable=False),
+    sa.Column('city', sqlmodel.sql.sqltypes.AutoString(), nullable=False),
     sa.Column('title', sqlmodel.sql.sqltypes.AutoString(), nullable=False),
     sa.Column('author', sqlmodel.sql.sqltypes.AutoString(), nullable=False),
     sa.Column('edition', sqlmodel.sql.sqltypes.AutoString(), nullable=True),
@@ -99,17 +100,16 @@ def upgrade() -> None:
     sa.Column('condition', sa.Enum('like_new', 'good', 'fair', 'poor', name='bookcondition'), nullable=False),
     sa.Column('price', sa.Integer(), nullable=False),
     sa.Column('description', sqlmodel.sql.sqltypes.AutoString(), nullable=True),
-    sa.Column('status', sa.Enum('available', 'reserved', 'sold', name='bookstatus'), nullable=False),
-    sa.Column('buyer_id', sa.Integer(), nullable=True),
+    sa.Column('status', sa.Enum('available', 'sold', name='bookstatus'), nullable=False),
     sa.Column('created_at', sqlmodel.sql.sqltypes.UTCDateTime(), nullable=False),
     sa.Column('updated_at', sqlmodel.sql.sqltypes.UTCDateTime(), nullable=False),
-    sa.ForeignKeyConstraint(['buyer_id'], ['user.id'], ),
     sa.ForeignKeyConstraint(['college_id'], ['college.id'], ),
     sa.ForeignKeyConstraint(['seller_id'], ['user.id'], ),
     sa.PrimaryKeyConstraint('id')
     )
     with op.batch_alter_table('book', schema=None) as batch_op:
         batch_op.create_index(batch_op.f('ix_book_author'), ['author'], unique=False)
+        batch_op.create_index(batch_op.f('ix_book_city'), ['city'], unique=False)
         batch_op.create_index(batch_op.f('ix_book_college_id'), ['college_id'], unique=False)
         batch_op.create_index(batch_op.f('ix_book_created_at'), ['created_at'], unique=False)
         batch_op.create_index(batch_op.f('ix_book_seller_id'), ['seller_id'], unique=False)
@@ -145,12 +145,11 @@ def upgrade() -> None:
     with op.batch_alter_table('bookimage', schema=None) as batch_op:
         batch_op.create_index(batch_op.f('ix_bookimage_book_id'), ['book_id'], unique=False)
 
-    op.create_table('buyrequest',
+    op.create_table('conversation',
     sa.Column('id', sa.Integer(), nullable=False),
     sa.Column('book_id', sa.Integer(), nullable=False),
     sa.Column('buyer_id', sa.Integer(), nullable=False),
     sa.Column('seller_id', sa.Integer(), nullable=False),
-    sa.Column('status', sa.Enum('pending', 'accepted', 'rejected', 'cancelled', 'completed', name='requeststatus'), nullable=False),
     sa.Column('buyer_last_read_at', sqlmodel.sql.sqltypes.UTCDateTime(), nullable=True),
     sa.Column('seller_last_read_at', sqlmodel.sql.sqltypes.UTCDateTime(), nullable=True),
     sa.Column('created_at', sqlmodel.sql.sqltypes.UTCDateTime(), nullable=False),
@@ -158,13 +157,13 @@ def upgrade() -> None:
     sa.ForeignKeyConstraint(['book_id'], ['book.id'], ),
     sa.ForeignKeyConstraint(['buyer_id'], ['user.id'], ),
     sa.ForeignKeyConstraint(['seller_id'], ['user.id'], ),
-    sa.PrimaryKeyConstraint('id')
+    sa.PrimaryKeyConstraint('id'),
+    sa.UniqueConstraint('book_id', 'buyer_id')
     )
-    with op.batch_alter_table('buyrequest', schema=None) as batch_op:
-        batch_op.create_index(batch_op.f('ix_buyrequest_book_id'), ['book_id'], unique=False)
-        batch_op.create_index(batch_op.f('ix_buyrequest_buyer_id'), ['buyer_id'], unique=False)
-        batch_op.create_index(batch_op.f('ix_buyrequest_seller_id'), ['seller_id'], unique=False)
-        batch_op.create_index(batch_op.f('ix_buyrequest_status'), ['status'], unique=False)
+    with op.batch_alter_table('conversation', schema=None) as batch_op:
+        batch_op.create_index(batch_op.f('ix_conversation_book_id'), ['book_id'], unique=False)
+        batch_op.create_index(batch_op.f('ix_conversation_buyer_id'), ['buyer_id'], unique=False)
+        batch_op.create_index(batch_op.f('ix_conversation_seller_id'), ['seller_id'], unique=False)
 
     op.create_table('report',
     sa.Column('id', sa.Integer(), nullable=False),
@@ -186,17 +185,17 @@ def upgrade() -> None:
 
     op.create_table('message',
     sa.Column('id', sa.Integer(), nullable=False),
-    sa.Column('request_id', sa.Integer(), nullable=False),
+    sa.Column('conversation_id', sa.Integer(), nullable=False),
     sa.Column('sender_id', sa.Integer(), nullable=True),
     sa.Column('body', sqlmodel.sql.sqltypes.AutoString(), nullable=False),
     sa.Column('created_at', sqlmodel.sql.sqltypes.UTCDateTime(), nullable=False),
-    sa.ForeignKeyConstraint(['request_id'], ['buyrequest.id'], ),
+    sa.ForeignKeyConstraint(['conversation_id'], ['conversation.id'], ),
     sa.ForeignKeyConstraint(['sender_id'], ['user.id'], ),
     sa.PrimaryKeyConstraint('id')
     )
     with op.batch_alter_table('message', schema=None) as batch_op:
+        batch_op.create_index(batch_op.f('ix_message_conversation_id'), ['conversation_id'], unique=False)
         batch_op.create_index(batch_op.f('ix_message_created_at'), ['created_at'], unique=False)
-        batch_op.create_index(batch_op.f('ix_message_request_id'), ['request_id'], unique=False)
 
     # ### end Alembic commands ###
 
@@ -204,8 +203,8 @@ def upgrade() -> None:
 def downgrade() -> None:
     # ### commands auto generated by Alembic - please adjust! ###
     with op.batch_alter_table('message', schema=None) as batch_op:
-        batch_op.drop_index(batch_op.f('ix_message_request_id'))
         batch_op.drop_index(batch_op.f('ix_message_created_at'))
+        batch_op.drop_index(batch_op.f('ix_message_conversation_id'))
 
     op.drop_table('message')
     with op.batch_alter_table('report', schema=None) as batch_op:
@@ -213,13 +212,12 @@ def downgrade() -> None:
         batch_op.drop_index(batch_op.f('ix_report_reported_user_id'))
 
     op.drop_table('report')
-    with op.batch_alter_table('buyrequest', schema=None) as batch_op:
-        batch_op.drop_index(batch_op.f('ix_buyrequest_status'))
-        batch_op.drop_index(batch_op.f('ix_buyrequest_seller_id'))
-        batch_op.drop_index(batch_op.f('ix_buyrequest_buyer_id'))
-        batch_op.drop_index(batch_op.f('ix_buyrequest_book_id'))
+    with op.batch_alter_table('conversation', schema=None) as batch_op:
+        batch_op.drop_index(batch_op.f('ix_conversation_seller_id'))
+        batch_op.drop_index(batch_op.f('ix_conversation_buyer_id'))
+        batch_op.drop_index(batch_op.f('ix_conversation_book_id'))
 
-    op.drop_table('buyrequest')
+    op.drop_table('conversation')
     with op.batch_alter_table('bookimage', schema=None) as batch_op:
         batch_op.drop_index(batch_op.f('ix_bookimage_book_id'))
 
@@ -235,6 +233,7 @@ def downgrade() -> None:
         batch_op.drop_index(batch_op.f('ix_book_seller_id'))
         batch_op.drop_index(batch_op.f('ix_book_created_at'))
         batch_op.drop_index(batch_op.f('ix_book_college_id'))
+        batch_op.drop_index(batch_op.f('ix_book_city'))
         batch_op.drop_index(batch_op.f('ix_book_author'))
 
     op.drop_table('book')

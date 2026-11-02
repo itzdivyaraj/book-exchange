@@ -26,13 +26,13 @@ def test_acronym_and_word_order_matching():
 
 
 def test_adding_existing_college_by_alias_returns_existing(client):
-    r = client.post("/colleges", json={"name": "Delhi University"}).json()
+    r = client.post("/colleges", json={"name": "Delhi University", "city": "Delhi"}).json()
     assert r["created"] is False
     assert r["college"]["name"] == "University of Delhi"
 
 
 def test_adding_near_duplicate_gives_suggestions(client):
-    r = client.post("/colleges", json={"name": "Univ of Dehli"}).json()  # typo on purpose
+    r = client.post("/colleges", json={"name": "Univ of Dehli", "city": "Delhi"}).json()  # typo on purpose
     assert r["created"] is False
     assert any(s["name"] == "University of Delhi" for s in r["suggestions"])
 
@@ -42,7 +42,7 @@ def test_adding_truly_new_college(client):
     assert r["created"] is True
     assert r["college"]["is_verified"] is False
     # Same name again (different spacing/case) does NOT create a second copy.
-    again = client.post("/colleges", json={"name": "maharaja  agrasen institute of technology"}).json()
+    again = client.post("/colleges", json={"name": "maharaja  agrasen institute of technology", "city": "delhi"}).json()
     assert again["created"] is False
     assert again["college"]["id"] == r["college"]["id"]
 
@@ -101,3 +101,7 @@ def test_validation(client):
 def test_no_token_or_fake_token(client):
     assert client.get("/auth/me").status_code == 401
     assert client.get("/auth/me", headers={"Authorization": "Bearer made-up-token"}).status_code == 401
+
+
+def test_new_college_needs_a_city(client):
+    assert client.post("/colleges", json={"name": "Some Brand New College Of Arts"}).status_code == 422

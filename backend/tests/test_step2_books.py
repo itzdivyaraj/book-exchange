@@ -8,6 +8,7 @@ from pathlib import Path
 from PIL import Image
 
 BOOK = {
+    "city": "Delhi",
     "title": "Concepts of Physics Vol 1",
     "author": "H C Verma",
     "edition": "2022",
@@ -100,15 +101,29 @@ def test_partial_update_changes_only_what_was_sent(client, make_user):
 
 
 # ---------------------------------------------------------------- status rules
-def test_manual_status_is_only_sold_and_sold_is_final(client, make_user):
-    # Since step 3, "reserved" happens only by accepting a buy request (see test_step3).
+def test_status_available_and_sold(client, make_user):
     headers, _ = make_user()
     bid = create_book(client, headers)["id"]
     url = f"/books/{bid}/status"
 
-    assert client.patch(url, json={"status": "reserved"}, headers=headers).status_code == 422
+    assert client.patch(url, json={"status": "reserved"}, headers=headers).status_code == 422  # no such status
     assert client.patch(url, json={"status": "sold"}, headers=headers).json()["status"] == "sold"
-    assert client.patch(f"/books/{bid}", json={"price": 10}, headers=headers).status_code == 409
+    assert client.patch(f"/books/{bid}", json={"price": 10}, headers=headers).status_code == 409  # can't edit while sold
+    assert client.patch(url, json={"status": "available"}, headers=headers).json()["status"] == "available"
+    assert client.patch(f"/books/{bid}", json={"price": 10}, headers=headers).status_code == 200
+
+
+def test_city_is_required_tidied_and_filterable(client, make_user):
+    headers, user = make_user(college_q="Jadavpur University")
+    assert client.post("/books", json={**BOOK, "city": ""}, headers=headers).status_code == 422
+    no_city = {k: v for k, v in BOOK.items() if k != "city"}
+    assert client.post("/books", json=no_city, headers=headers).status_code == 422
+    b = create_book(client, headers, city="  kolkata ", title="Kolkata book")
+    assert b["city"] == "Kolkata"
+    create_book(client, headers, city="Siliguri", title="Siliguri book")
+    cid = user["college"]["id"]
+    found = client.get("/books", params={"college_id": cid, "city": "KOLKATA"}).json()["items"]
+    assert [x["title"] for x in found] == ["Kolkata book"]
 
 
 def test_my_books_include_sold_ones(client, make_user):

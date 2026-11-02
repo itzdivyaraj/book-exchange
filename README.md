@@ -1,6 +1,6 @@
 # Book Exchange
 
-A marketplace for used college textbooks. Students list the books they no longer need, others at their college find them, chat in the app, and meet on campus to hand them over.
+A listing site for used college textbooks. Students list the books they no longer need, others find them by college, city or title, and message the seller in the app. Price, pickup and payment are agreed between the two of them; the site only connects them.
 
 Every semester a lot of perfectly good textbooks end up on shelves while juniors buy the same titles new. Book Exchange tries to keep those books moving between students, at student prices.
 
@@ -10,14 +10,13 @@ Every semester a lot of perfectly good textbooks end up on shelves while juniors
 
 - **Accounts:** sign up with email verification (6-digit code), forgot/reset password, change password, delete account
 - **Colleges:** search-as-you-type picker. "DU", "Delhi University" and "University of Delhi" all resolve to the same college, and new colleges can be added with a "did you mean…?" check to avoid duplicates
-- **Listings:** title, author, edition, subject, semester, condition and price, with up to 3 photos per book. Photos are resized and stripped of location data on upload
-- **Browse:** search by title, author, subject or ISBN; filter by college, semester, condition and price; sort and paginate
-- **Deals:** request a book → seller accepts (book is reserved) → meet up → seller marks it sold. Either side can cancel, which releases the book
-- **Chat:** a conversation per request, with an unread badge and new messages showing up without a refresh
-- **Safety:** report listings or users, block users (works both ways), rate limits on login, requests and messages, and a pay-only-after-you-see-it reminder in every chat
+- **Listings:** title, author, price and pickup city (required), plus edition, subject, semester, condition, ISBN, description and up to 3 photos. Photos are resized and stripped of location data on upload. Sellers mark books sold, or available again
+- **Browse:** search by title, author, subject or ISBN; filter by college, city, semester, condition and price; sort and paginate. Anyone can browse without an account
+- **Messaging:** "Message seller" opens a chat about that book (messaging again reopens the same one), with an unread badge and new messages appearing without a refresh. Books in a different city from the buyer's college show a notice before messaging
+- **Safety:** report listings or users, block users (works both ways), and rate limits on login, new chats and messages
 - **Dark mode:** follows the system setting, with a toggle in the top bar
 
-<img src="docs/chat-dark.png" alt="Chat in dark mode" width="720">
+<img src="docs/book-dark.png" alt="A listing in dark mode" width="720">
 
 ## Tech stack
 
@@ -40,7 +39,7 @@ React (Vercel)  ──HTTPS + Bearer token──▶  FastAPI (Render)  ──▶
                                               └──▶ Brevo (verification / reset emails)
 ```
 
-The API is the only thing that talks to the database. Every write checks two things: who you are (session token → user) and whether you're allowed (e.g. only a book's seller can edit it or accept a request). Accepting or completing a deal updates the request and the book in a single transaction, so they can't get out of sync.
+The API is the only thing that talks to the database. Every write checks two things: who you are (session token → user) and whether you're allowed (only a book's seller can edit it, only the two people in a conversation can read it). The site deliberately stays out of the transaction itself: no payments, no deliveries, no deal tracking.
 
 ## Running it locally
 
@@ -81,7 +80,7 @@ backend/
     models.py            database tables
     schemas.py           request/response shapes
     security.py          password hashing, sessions, auth dependencies
-    routers/             auth, colleges, books, requests (deals + chat), safety
+    routers/             auth, colleges, books, conversations (chat), safety
     college_matching.py  normalising and fuzzy-matching college names
     storage.py           photo processing; local folder or Cloudinary
     emailer.py           console (dev) or Brevo
@@ -95,18 +94,19 @@ frontend/
     pages/               Browse, BookDetail, BookForm, MyListings, Messages, Account, auth pages
     components/          layout, book card, college picker, UI pieces
 render.yaml              Render config
+DEPLOY.md                deployment steps
+TESTING.md               manual test plan
 ```
 
 Changing a table means editing `models.py` and generating a migration:
 ```bash
 cd backend
 alembic revision --autogenerate -m "describe the change"
-
 ```
 
 ## Deployment
 
-The whole stack runs on free tiers: Neon (Postgres), Render (API), Vercel (frontend), Cloudinary (photos) and Brevo (email).
+The whole stack runs on free tiers. See [DEPLOY.md](DEPLOY.md) for the step-by-step setup (Neon, Cloudinary, Brevo, Render, Vercel).
 
 ## What's next
 

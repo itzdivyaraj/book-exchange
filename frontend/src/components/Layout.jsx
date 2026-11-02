@@ -11,7 +11,7 @@ function useUnreadCount(user) {
     if (!user) return setCount(0)
     let stop = false
     const load = () =>
-      api('/requests')
+      api('/conversations')
         .then((rows) => !stop && setCount(rows.reduce((n, r) => n + r.unread_count, 0)))
         .catch(() => {})
     load()
@@ -120,7 +120,7 @@ export default function Layout() {
       </main>
 
       <footer className="border-t border-line px-4 py-6 text-center text-xs text-ink-soft">
-        Meet in a public place on campus. Never pay before you've seen the book.
+        Book Exchange is a listing site for used textbooks. We don't handle payments or deliveries.
       </footer>
     </div>
   )

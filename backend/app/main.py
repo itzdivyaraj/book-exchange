@@ -5,7 +5,7 @@ It:
   - creates the FastAPI app
   - allows your React site to call it (CORS)
   - runs database migrations + loads the college list on startup
-  - plugs in the routers (auth, colleges, books, requests & chat, safety)
+  - plugs in the routers (auth, colleges, books, conversations, safety)
   - serves uploaded photos at /uploads/... (local only; Cloudinary when live)
 """
 from contextlib import asynccontextmanager
@@ -17,7 +17,7 @@ from fastapi.staticfiles import StaticFiles
 
 from .config import FRONTEND_ORIGINS, UPLOAD_DIR
 from .db import run_migrations
-from .routers import auth, books, colleges, requests, safety
+from .routers import auth, books, colleges, conversations, safety
 from .seed import seed_colleges
 
 
@@ -44,7 +44,7 @@ app.add_middleware(
 app.include_router(auth.router)
 app.include_router(colleges.router)
 app.include_router(books.router)
-app.include_router(requests.router)
+app.include_router(conversations.router)
 app.include_router(safety.router)
 
 # Photos saved in the uploads/ folder become viewable at http://127.0.0.1:8000/uploads/<name>.jpg

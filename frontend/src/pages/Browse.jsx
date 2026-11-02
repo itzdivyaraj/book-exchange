@@ -9,7 +9,7 @@ import CollegePicker from '../components/CollegePicker'
 import { Pagination } from '../components/Extras'
 import { Alert, Button, CONDITIONS, Empty, Input, Select, Spinner } from '../components/ui'
 
-const FILTER_KEYS = ['q', 'college_id', 'subject', 'semester', 'condition', 'min_price', 'max_price', 'sort', 'page']
+const FILTER_KEYS = ['q', 'college_id', 'city', 'subject', 'semester', 'condition', 'min_price', 'max_price', 'sort', 'page']
 
 export default function Browse() {
   const { user } = useAuth()
@@ -52,13 +52,16 @@ export default function Browse() {
       return p
     })
 
-  const hasFilters = ['subject', 'semester', 'condition', 'min_price', 'max_price'].some((k) => params.get(k))
+  const hasFilters = ['city', 'subject', 'semester', 'condition', 'min_price', 'max_price'].some((k) => params.get(k))
 
   return (
     <div>
       <section className="mb-6">
-        <h1 className="text-3xl font-bold sm:text-4xl">Textbooks from your campus</h1>
-        <p className="mt-1 text-ink-soft">Find last semester's books at student prices. Meet on campus, check the book, then pay.</p>
+        <h1 className="text-3xl font-bold sm:text-4xl">Used textbooks, listed by students</h1>
+        <p className="mt-1 max-w-2xl text-ink-soft">
+          List the books you're done with for free, find the ones you need from students near you, and message sellers directly.
+          Book Exchange only connects you: price and pickup are up to you.
+        </p>
         <form
           className="mt-4 flex gap-2"
           onSubmit={(e) => {
@@ -98,7 +101,8 @@ export default function Browse() {
           Filters{hasFilters ? ' •' : ''}
         </Button>
         {showFilters && (
-          <div className="grid gap-2 sm:col-span-3 sm:grid-cols-5">
+          <div className="grid gap-2 sm:col-span-3 sm:grid-cols-6">
+            <Input placeholder="City" defaultValue={params.get('city') || ''} onBlur={(e) => update({ city: e.target.value.trim() })} aria-label="City" />
             <Input placeholder="Subject" defaultValue={params.get('subject') || ''} onBlur={(e) => update({ subject: e.target.value.trim() })} aria-label="Subject" />
             <Select value={params.get('semester') || ''} onChange={(e) => update({ semester: e.target.value })} aria-label="Semester">
               <option value="">Any semester</option>
@@ -111,7 +115,7 @@ export default function Browse() {
             <Input type="number" min="0" placeholder="Min ₹" defaultValue={params.get('min_price') || ''} onBlur={(e) => update({ min_price: e.target.value })} aria-label="Minimum price" />
             <Input type="number" min="0" placeholder="Max ₹" defaultValue={params.get('max_price') || ''} onBlur={(e) => update({ max_price: e.target.value })} aria-label="Maximum price" />
             {hasFilters && (
-              <Button variant="ghost" className="sm:col-span-5 sm:justify-self-start" onClick={() => update({ subject: '', semester: '', condition: '', min_price: '', max_price: '' })}>
+              <Button variant="ghost" className="sm:col-span-6 sm:justify-self-start" onClick={() => update({ city: '', subject: '', semester: '', condition: '', min_price: '', max_price: '' })}>
                 Clear filters
               </Button>
             )}
@@ -124,7 +128,7 @@ export default function Browse() {
       {data && (
         <>
           <p className="mb-3 text-sm text-ink-soft">
-            {data.total} book{data.total === 1 ? '' : 's'} {college ? `at ${college.name}` : 'across all colleges'}
+            {data.total} book{data.total === 1 ? '' : 's'} {college ? `at ${college.name}` : 'across all colleges'}{params.get('city') ? ` in ${params.get('city')}` : ''}
           </p>
           {data.items.length === 0 ? (
             <Empty title="No books here yet">

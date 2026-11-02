@@ -79,13 +79,7 @@ export function Empty({ title, children }) {
 
 const STATUS_STYLES = {
   available: 'bg-emerald-50 text-emerald-700 border-emerald-200',
-  reserved: 'bg-amber-50 text-amber-800 border-amber-200',
   sold: 'bg-stone-100 text-stone-600 border-stone-200',
-  pending: 'bg-sky-50 text-sky-700 border-sky-200',
-  accepted: 'bg-amber-50 text-amber-800 border-amber-200',
-  completed: 'bg-emerald-50 text-emerald-700 border-emerald-200',
-  rejected: 'bg-stone-100 text-stone-600 border-stone-200',
-  cancelled: 'bg-stone-100 text-stone-600 border-stone-200',
 }
 
 export function StatusBadge({ status }) {

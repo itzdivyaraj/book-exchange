@@ -24,7 +24,7 @@ class CollegeOut(BaseModel):
 
 class CollegeCreate(BaseModel):
     name: str = Field(min_length=3, max_length=150)
-    city: Optional[str] = Field(default=None, max_length=80)
+    city: str = Field(min_length=2, max_length=80)  # needed for the "different city" notice
     state: Optional[str] = Field(default=None, max_length=80)
     # Set to True when the user has seen our "did you mean...?" suggestions
     # and still says "no, mine is different".
@@ -72,6 +72,7 @@ from .models import BookCondition, BookStatus  # noqa: E402
 
 
 class BookCreate(BaseModel):
+    city: str = Field(min_length=2, max_length=80, description="Where the book can be picked up")
     title: str = Field(min_length=2, max_length=200)
     author: str = Field(min_length=2, max_length=150)
     edition: Optional[str] = Field(default=None, max_length=50)
@@ -87,6 +88,7 @@ class BookCreate(BaseModel):
 
 class BookUpdate(BaseModel):
     """Every field optional: only the fields you send get changed (a 'partial update')."""
+    city: Optional[str] = Field(default=None, min_length=2, max_length=80)
     title: Optional[str] = Field(default=None, min_length=2, max_length=200)
     author: Optional[str] = Field(default=None, min_length=2, max_length=150)
     edition: Optional[str] = Field(default=None, max_length=50)
@@ -99,8 +101,7 @@ class BookUpdate(BaseModel):
 
 
 class BookStatusUpdate(BaseModel):
-    # Only "sold" (sold outside the app). Reserved/completed happen through buy requests.
-    status: Literal["sold"]
+    status: BookStatus  # available <-> sold
 
 
 class BookImageOut(BaseModel):
@@ -118,6 +119,7 @@ class SellerOut(BaseModel):
 
 class BookOut(BaseModel):
     id: int
+    city: str
     title: str
     author: str
     edition: Optional[str]
@@ -133,7 +135,7 @@ class BookOut(BaseModel):
     seller: SellerOut
     college: CollegeOut
     images: list[BookImageOut]
-    is_mine: bool  # handy for the frontend: show "Edit" instead of "Request to buy"
+    is_mine: bool  # handy for the frontend: show "Edit" instead of "Message seller"
 
 
 class BookPage(BaseModel):
@@ -148,11 +150,11 @@ class BookPage(BaseModel):
 SortOption = Literal["newest", "oldest", "price_low", "price_high"]
 
 
-# ======================= Step 3: requests, chat, safety =======================
-from .models import ReportReason, RequestStatus  # noqa: E402
+# ======================= Step 3: conversations, safety =======================
+from .models import ReportReason  # noqa: E402
 
 
-class BuyRequestCreate(BaseModel):
+class ConversationCreate(BaseModel):
     book_id: int
     message: Optional[str] = Field(default=None, max_length=1000, description="Optional first message to the seller")
 
@@ -168,6 +170,7 @@ class BookSummaryOut(BaseModel):
     title: str
     author: str
     price: int
+    city: str
     status: BookStatus
     image_url: Optional[str] = None
 
@@ -178,12 +181,11 @@ class MessageOut(BaseModel):
     created_at: datetime
     sender_id: Optional[int]
     is_mine: bool
-    is_system: bool  # automatic safety/status messages from the app itself
+    is_system: bool  # automatic notes from the app itself
 
 
-class BuyRequestOut(BaseModel):
+class ConversationOut(BaseModel):
     id: int
-    status: RequestStatus
     my_role: Literal["buyer", "seller"]
     book: BookSummaryOut
     buyer: PersonOut

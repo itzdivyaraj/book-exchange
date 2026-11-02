@@ -1,8 +1,8 @@
 """
-Block helpers, shared by the books and requests routers.
+Block helpers, shared by the books and conversations routers.
 
-A block works in BOTH directions: if A blocks B, neither can request
-the other's books or message each other, and they don't see each other's listings.
+A block works in BOTH directions: if A blocks B, neither can message
+the other, and they don't see each other's listings.
 """
 from sqlmodel import Session, and_, or_, select
 

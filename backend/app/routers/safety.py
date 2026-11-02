@@ -7,7 +7,7 @@ Safety tools.
   GET    /blocks               people I've blocked
 
 What a block does (both directions, see blocking.py):
-  - no new buy requests between the two people
+  - no new conversations between the two people
   - no messages in existing chats
   - their listings are hidden from each other when browsing
 """

@@ -6,7 +6,7 @@ Book endpoints.
   GET    /books/{id}                    one book                                  (public)
   POST   /books                         create a listing                          (login)
   PATCH  /books/{id}                    edit details                              (owner)
-  PATCH  /books/{id}/status             mark sold outside the app                 (owner)
+  PATCH  /books/{id}/status             available <-> sold                        (owner)
   DELETE /books/{id}                    delete listing + its photos               (owner)
   POST   /books/{id}/images             upload a photo (max 3)                    (owner)
   DELETE /books/{id}/images/{image_id}  remove a photo                            (owner)
@@ -24,7 +24,7 @@ from ..blocking import hidden_user_ids
 from ..config import MAX_IMAGES_PER_BOOK, MAX_UPLOAD_MB
 from ..db import get_session
 from ..models import (
-    Book, BookCondition, BookImage, BookStatus, BuyRequest, College, Message, Report, RequestStatus, User, utcnow,
+    Book, BookCondition, BookImage, BookStatus, College, Conversation, Message, Report, User, utcnow,
 )
 from ..schemas import (
     BookCreate,
@@ -68,7 +68,7 @@ def to_book_outs(db: Session, books: list[Book], viewer: Optional[User]) -> list
 
     return [
         BookOut(
-            **b.model_dump(exclude={"seller_id", "college_id", "buyer_id"}),
+            **b.model_dump(exclude={"seller_id", "college_id"}),
             seller=SellerOut(id=b.seller_id, name=sellers[b.seller_id].name),
             college=CollegeOut.model_validate(colleges[b.college_id]),
             images=[
@@ -109,6 +109,7 @@ def _escape_like(text: str) -> str:
 def browse_books(
     q: Optional[str] = Query(None, max_length=100, description="Search title, author, subject or ISBN"),
     college_id: Optional[int] = Query(None, description="Only books at this college"),
+    city: Optional[str] = Query(None, max_length=80, description="Only books in this city"),
     subject: Optional[str] = Query(None, max_length=100),
     semester: Optional[int] = Query(None, ge=1, le=12),
     condition: Optional[BookCondition] = None,
@@ -139,6 +140,8 @@ def browse_books(
         )
     if college_id is not None:
         filters.append(Book.college_id == college_id)
+    if city and city.strip():
+        filters.append(func.lower(Book.city) == city.strip().lower())
     if subject:
         filters.append(col(Book.subject).ilike(f"%{_escape_like(subject.strip())}%", escape="\\"))
     if semester is not None:
@@ -216,6 +219,7 @@ def create_book(data: BookCreate, user: User = Depends(get_verified_user), db: S
             )
     fields = data.model_dump(exclude={"allow_duplicate"})
     fields["title"], fields["author"] = fields["title"].strip(), fields["author"].strip()
+    fields["city"] = " ".join(fields["city"].split()).title()  # "  new delhi " -> "New Delhi"
     book = Book(**fields, seller_id=user.id, college_id=user.college_id)
     db.add(book)
     db.commit()
@@ -232,10 +236,12 @@ def update_book(
 ):
     book = get_own_book(db, book_id, user)
     if book.status == BookStatus.sold:
-        raise HTTPException(status.HTTP_409_CONFLICT, "This book is sold and can't be edited.")
+        raise HTTPException(status.HTTP_409_CONFLICT, "This book is marked sold. Mark it available again to edit it.")
     # exclude_unset: only the fields the user actually sent. Missing fields stay as they were.
     changes = data.model_dump(exclude_unset=True)
-    for required in ("title", "author", "price", "condition"):
+    if changes.get("city"):
+        changes["city"] = " ".join(changes["city"].split()).title()
+    for required in ("city", "title", "author", "price", "condition"):
         if required in changes and changes[required] is None:
             raise HTTPException(422, f"{required} can't be empty.")
     for field, value in changes.items():
@@ -255,26 +261,16 @@ def change_status(
     db: Session = Depends(get_session),
 ):
     """
-    "I sold it outside the app" -> sold. (The only manual change.)
-    Reserving and completing a sale happen through buy requests (/requests),
-    so the book and the conversation always agree.
+    Mark as sold (hidden from Browse) or available again (e.g. the buyer backed out).
+    The site doesn't track who bought it: deals happen between the people, in their chat.
     """
-    from .requests import reject_other_pending  # imported here to avoid a circular import
-
     book = get_own_book(db, book_id, user)
-    if book.status == BookStatus.sold:
-        return to_book_out(db, book, user)
-    if book.status == BookStatus.reserved:
-        raise HTTPException(
-            status.HTTP_409_CONFLICT,
-            "This book is reserved for a buyer. Complete or cancel that deal in your requests instead.",
-        )
-    book.status = BookStatus.sold
-    book.updated_at = utcnow()
-    db.add(book)
-    reject_other_pending(db, book.id, None, "Sorry, this book has been sold.")
-    db.commit()
-    db.refresh(book)
+    if data.status != book.status:
+        book.status = data.status
+        book.updated_at = utcnow()
+        db.add(book)
+        db.commit()
+        db.refresh(book)
     return to_book_out(db, book, user)
 
 
@@ -285,13 +281,13 @@ def remove_book(db: Session, book: Book) -> None:
     (Postgres refuses to delete a row that other rows still point to).
     Also used when an account is deleted (step 4).
     """
-    requests = db.exec(select(BuyRequest).where(BuyRequest.book_id == book.id)).all()
-    for r in requests:
-        for m in db.exec(select(Message).where(Message.request_id == r.id)).all():
+    conversations = db.exec(select(Conversation).where(Conversation.book_id == book.id)).all()
+    for c in conversations:
+        for m in db.exec(select(Message).where(Message.conversation_id == c.id)).all():
             db.delete(m)
     db.flush()
-    for r in requests:
-        db.delete(r)
+    for c in conversations:
+        db.delete(c)
     for report in db.exec(select(Report).where(Report.book_id == book.id)).all():
         report.book_id = None  # keep the report for the admin, note what it was about
         report.details = f"[deleted listing: {book.title}] " + (report.details or "")
@@ -305,15 +301,8 @@ def remove_book(db: Session, book: Book) -> None:
 
 @router.delete("/{book_id}", status_code=status.HTTP_204_NO_CONTENT)
 def delete_book(book_id: int, user: User = Depends(get_current_user), db: Session = Depends(get_session)):
-    book = get_own_book(db, book_id, user)
-    requests = db.exec(select(BuyRequest).where(BuyRequest.book_id == book.id)).all()
-    if any(r.status in (RequestStatus.accepted, RequestStatus.completed) for r in requests):
-        raise HTTPException(
-            status.HTTP_409_CONFLICT,
-            "This book has an accepted or completed deal, so it can't be deleted. "
-            "Cancel the deal first, or keep it as sold.",
-        )
-    remove_book(db, book)
+    """Deletes the listing, its photos, and the chats about it."""
+    remove_book(db, get_own_book(db, book_id, user))
     db.commit()
 
 
@@ -327,7 +316,7 @@ def upload_image(
 ):
     book = get_own_book(db, book_id, user)
     if book.status == BookStatus.sold:
-        raise HTTPException(status.HTTP_409_CONFLICT, "This book is sold and can't be edited.")
+        raise HTTPException(status.HTTP_409_CONFLICT, "This book is marked sold. Mark it available again to edit it.")
     existing = db.exec(select(BookImage).where(BookImage.book_id == book.id)).all()
     if len(existing) >= MAX_IMAGES_PER_BOOK:
         raise HTTPException(status.HTTP_409_CONFLICT, f"A listing can have at most {MAX_IMAGES_PER_BOOK} photos.")

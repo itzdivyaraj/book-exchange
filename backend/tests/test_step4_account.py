@@ -13,7 +13,7 @@ from app.emailer import OUTBOX
 from app.models import EmailCode, utcnow
 from conftest import latest_code
 
-BOOK = {"title": "Signals and Systems", "author": "Oppenheim", "price": 500}
+BOOK = {"city": "Delhi", "title": "Signals and Systems", "author": "Oppenheim", "price": 500}
 
 
 def auth(token):
@@ -39,7 +39,7 @@ def test_signup_sends_code_and_unverified_users_are_limited(client, make_user):
     assert client.post("/books", json=BOOK, headers=headers).status_code == 403
     seller, _ = make_user()
     book = client.post("/books", json=BOOK, headers=seller).json()
-    blocked = client.post("/requests", json={"book_id": book["id"]}, headers=headers)
+    blocked = client.post("/conversations", json={"book_id": book["id"]}, headers=headers)
     assert blocked.status_code == 403 and "verify your email" in blocked.json()["detail"]
 
     # Wrong code -> told how many attempts are left; right code -> verified
@@ -132,15 +132,15 @@ def test_delete_account_erases_personal_data(client, make_user):
     leaving, leaving_user = make_user()
     other, _ = make_user()
 
-    # The leaving user has: an available book with a photo, a sold book, an accepted deal as buyer.
+    # The leaving user has: an available book with a photo, a sold book, and a chat as a buyer.
     available = client.post("/books", json={**BOOK, "title": "Available one"}, headers=leaving).json()
     client.post(f"/books/{available['id']}/images", headers=leaving, files={"file": ("p.jpg", _jpeg(), "image/jpeg")})
     sold = client.post("/books", json={**BOOK, "title": "Sold one"}, headers=leaving).json()
+    client.post("/conversations", json={"book_id": sold["id"], "message": "Is it available?"}, headers=other)
     client.patch(f"/books/{sold['id']}/status", json={"status": "sold"}, headers=leaving)
 
     others_book = client.post("/books", json=BOOK, headers=other).json()
-    req = client.post("/requests", json={"book_id": others_book["id"], "message": "My number is 98xxxxxx"}, headers=leaving).json()
-    client.post(f"/requests/{req['id']}/accept", headers=other)
+    conv = client.post("/conversations", json={"book_id": others_book["id"], "message": "My number is 98xxxxxx"}, headers=leaving).json()
     photos_before = len(list(Path(os.environ["UPLOAD_DIR"]).iterdir()))
 
     assert client.post("/auth/delete-account", json={"password": "wrong"}, headers=leaving).status_code == 400
@@ -153,11 +153,11 @@ def test_delete_account_erases_personal_data(client, make_user):
     assert client.get(f"/books/{available['id']}").status_code == 404
     assert len(list(Path(os.environ["UPLOAD_DIR"]).iterdir())) == photos_before - 1
     assert client.get(f"/books/{sold['id']}").json()["seller"]["name"] == "Deleted user"
-    # The other person's book is released, and their chat shows what happened without the personal text
-    assert client.get(f"/books/{others_book['id']}").json()["status"] == "available"
-    msgs = client.get(f"/requests/{req['id']}/messages", headers=other).json()
+    # The other person's chat shows what happened without the personal text, and can't be replied to
+    msgs = client.get(f"/conversations/{conv['id']}/messages", headers=other).json()
     assert "98xxxxxx" not in str(msgs) and "[message deleted]" in [m["body"] for m in msgs]
     assert "deleted their account" in msgs[-1]["body"]
-    assert client.get(f"/requests/{req['id']}", headers=other).json()["buyer"]["name"] == "Deleted user"
+    assert client.get(f"/conversations/{conv['id']}", headers=other).json()["buyer"]["name"] == "Deleted user"
+    assert client.post(f"/conversations/{conv['id']}/messages", json={"body": "hello?"}, headers=other).status_code == 409
     # The email is free again for a brand-new account
     signup(client, leaving_user["email"])

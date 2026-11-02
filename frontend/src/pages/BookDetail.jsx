@@ -1,4 +1,4 @@
-// One book: photos, details, and what you can do (request / edit / report / block).
+// One book: photos, details, and what you can do (message seller / manage your listing / report / block).
 import { useEffect, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { api } from '../api'
@@ -6,6 +6,8 @@ import { useAuth } from '../auth'
 import { BookCover } from '../components/BookCard'
 import { ReportForm } from '../components/Extras'
 import { Alert, Button, CONDITIONS, Card, Spinner, StatusBadge, Textarea, formatPrice, timeAgo } from '../components/ui'
+
+const sameCity = (a, b) => !!a && !!b && a.trim().toLowerCase() === b.trim().toLowerCase()
 
 export default function BookDetail() {
   const { id } = useParams()
@@ -27,16 +29,20 @@ export default function BookDetail() {
   if (error) return <Alert>{error}</Alert>
   if (!book) return <Spinner className="mt-24" />
 
-  const request = async () => {
+  const contact = async () => {
     setBusy(true)
     setActionError('')
     try {
-      const r = await api('/requests', { method: 'POST', body: { book_id: book.id, message } })
-      navigate(`/messages/${r.id}`)
+      const c = await api('/conversations', { method: 'POST', body: { book_id: book.id, message } })
+      navigate(`/messages/${c.id}`)
     } catch (e) {
       setActionError(e.message)
       setBusy(false)
     }
+  }
+
+  const setStatus = async (status) => {
+    try { setBook(await api(`/books/${book.id}/status`, { method: 'PATCH', body: { status } })) } catch (e) { setActionError(e.message) }
   }
 
   const block = async () => {
@@ -49,7 +55,9 @@ export default function BookDetail() {
     }
   }
 
+  const otherCity = user && !book.is_mine && user.college.city && !sameCity(user.college.city, book.city)
   const images = book.images
+
   return (
     <div className="grid gap-6 md:grid-cols-2">
       <div>
@@ -83,12 +91,13 @@ export default function BookDetail() {
         </div>
 
         <dl className="grid grid-cols-2 gap-x-4 gap-y-2 rounded-xl border border-line bg-surface p-4 text-sm">
+          <dt className="text-ink-soft">City</dt><dd className="font-medium">{book.city}</dd>
+          <dt className="text-ink-soft">College</dt><dd>{book.college.name}</dd>
+          <dt className="text-ink-soft">Seller</dt><dd>{book.seller.name}</dd>
           <dt className="text-ink-soft">Condition</dt><dd>{CONDITIONS[book.condition]}</dd>
           {book.subject && <><dt className="text-ink-soft">Subject</dt><dd>{book.subject}</dd></>}
           {book.semester && <><dt className="text-ink-soft">Semester</dt><dd>{book.semester}</dd></>}
           {book.isbn && <><dt className="text-ink-soft">ISBN</dt><dd>{book.isbn}</dd></>}
-          <dt className="text-ink-soft">Seller</dt><dd>{book.seller.name}</dd>
-          <dt className="text-ink-soft">College</dt><dd>{book.college.name}</dd>
         </dl>
         {book.description && <p className="whitespace-pre-line text-sm leading-relaxed">{book.description}</p>}
 
@@ -97,24 +106,35 @@ export default function BookDetail() {
         {book.is_mine ? (
           <Card className="space-y-2">
             <p className="text-sm text-ink-soft">This is your listing.</p>
-            {book.status !== 'sold' && <Link to={`/books/${book.id}/edit`}><Button className="w-full">Edit listing & photos</Button></Link>}
-            <Link to="/my-listings" className="block text-center text-sm text-accent-dark hover:underline">Manage in My listings</Link>
+            {book.status === 'available' ? (
+              <div className="flex flex-wrap gap-2">
+                <Link to={`/books/${book.id}/edit`}><Button>Edit listing & photos</Button></Link>
+                <Button variant="secondary" onClick={() => setStatus('sold')}>Mark as sold</Button>
+              </div>
+            ) : (
+              <Button variant="secondary" onClick={() => setStatus('available')}>Mark as available again</Button>
+            )}
           </Card>
         ) : !user ? (
           <Card>
-            <p className="text-sm">Want this book?</p>
-            <Link to={`/login?next=/books/${book.id}`}><Button variant="accent" className="mt-2 w-full">Log in to request it</Button></Link>
+            <p className="text-sm">Interested in this book?</p>
+            <Link to={`/login?next=/books/${book.id}`}><Button variant="accent" className="mt-2 w-full">Log in to message the seller</Button></Link>
           </Card>
-        ) : book.status !== 'available' ? (
-          <Alert kind="info">This book is {book.status}, so it can't be requested right now.</Alert>
+        ) : book.status === 'sold' ? (
+          <Alert kind="info">The seller has marked this book as sold.</Alert>
         ) : !user.email_verified ? (
-          <Alert kind="info">Verify your email to request books. <Link to="/verify" className="font-semibold underline">Enter your code</Link></Alert>
+          <Alert kind="info">Verify your email to message sellers. <Link to="/verify" className="font-semibold underline">Enter your code</Link></Alert>
         ) : (
           <Card className="space-y-2">
+            {otherCity && (
+              <Alert kind="info">
+                This book is in <b>{book.city}</b>, and your college is in {user.college.city}. You'll need to arrange the handover with the seller yourselves.
+              </Alert>
+            )}
             <p className="text-sm font-medium">Message the seller</p>
             <Textarea value={message} maxLength={1000} onChange={(e) => setMessage(e.target.value)} />
-            <Button variant="accent" loading={busy} className="w-full" onClick={request}>Request to buy</Button>
-            <p className="text-xs text-ink-soft">You'll chat in Messages. Never pay before you've seen the book.</p>
+            <Button variant="accent" loading={busy} className="w-full" onClick={contact}>Message seller</Button>
+            <p className="text-xs text-ink-soft">You'll agree on price, pickup and payment between yourselves in the chat.</p>
           </Card>
         )}
 
