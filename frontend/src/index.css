@@ -1,0 +1,17 @@
+@import "tailwindcss";
+
+/* Colours and fonts used everywhere (Tailwind v4 "theme" variables). */
+@theme {
+  --color-paper: #f7f3ec;     /* page background, like book paper */
+  --color-ink: #1f2a44;       /* main text + primary buttons */
+  --color-ink-soft: #55607a;  /* secondary text */
+  --color-line: #e4ddd1;      /* borders */
+  --color-accent: #e07a3f;    /* highlights, prices */
+  --color-accent-dark: #b85a24;
+  --font-display: "Fraunces", Georgia, serif;
+  --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
+}
+
+html { background: var(--color-paper); }
+body { @apply font-sans text-ink antialiased; }
+h1, h2, h3 { @apply font-display; }

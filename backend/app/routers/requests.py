@@ -32,7 +32,7 @@ from ..db import get_session
 from ..models import Book, BookImage, BookStatus, BuyRequest, Message, RequestStatus, User, utcnow
 from ..ratelimit import MESSAGE_LIMIT, REQUEST_LIMIT, check_rate_limit
 from ..schemas import BookSummaryOut, BuyRequestCreate, BuyRequestOut, MessageCreate, MessageOut, PersonOut
-from ..security import get_current_user
+from ..security import get_current_user, get_verified_user
 from ..storage import public_url
 
 router = APIRouter(prefix="/requests", tags=["requests & chat"])
@@ -143,7 +143,7 @@ def mark_read(db: Session, req: BuyRequest, user: User) -> None:
 
 # ---------------------------------------------------------------- create + inbox
 @router.post("", response_model=BuyRequestOut, status_code=status.HTTP_201_CREATED)
-def create_request(data: BuyRequestCreate, user: User = Depends(get_current_user), db: Session = Depends(get_session)):
+def create_request(data: BuyRequestCreate, user: User = Depends(get_verified_user), db: Session = Depends(get_session)):
     check_rate_limit(f"request:{user.id}", *REQUEST_LIMIT, "You've sent a lot of requests. Please try again later.")
 
     book = db.get(Book, data.book_id)
@@ -328,7 +328,7 @@ def read_messages(
 def send_message(
     request_id: int,
     data: MessageCreate,
-    user: User = Depends(get_current_user),
+    user: User = Depends(get_verified_user),
     db: Session = Depends(get_session),
 ):
     req = get_my_request(db, request_id, user)

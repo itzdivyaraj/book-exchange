@@ -50,3 +50,6 @@ LOGIN_LIMIT = (10, 5 * 60)        # 10 attempts per 5 minutes, per email
 REQUEST_LIMIT = (10, 60 * 60)     # 10 buy requests per hour, per user
 MESSAGE_LIMIT = (20, 60)          # 20 messages per minute, per user
 REPORT_LIMIT = (10, 60 * 60)      # 10 reports per hour, per user
+RESEND_CODE_LIMIT = (1, 60)       # 1 new verification code per minute, per user
+RESEND_CODE_HOURLY = (5, 60 * 60) # ...and 5 per hour
+FORGOT_LIMIT = (3, 15 * 60)       # 3 reset emails per 15 minutes, per email address

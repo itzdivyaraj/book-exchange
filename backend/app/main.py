@@ -4,7 +4,7 @@ The entry point. `uvicorn app.main:app --reload` starts the server from here.
 It:
   - creates the FastAPI app
   - allows your React site to call it (CORS)
-  - creates tables + loads the college list on startup
+  - runs database migrations + loads the college list on startup
   - plugs in the routers (auth, colleges, books, requests & chat, safety)
   - serves uploaded photos at /uploads/... (local only; Cloudinary when live)
 """
@@ -16,7 +16,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 
 from .config import FRONTEND_ORIGINS, UPLOAD_DIR
-from .db import create_db_and_tables
+from .db import run_migrations
 from .routers import auth, books, colleges, requests, safety
 from .seed import seed_colleges
 
@@ -24,7 +24,7 @@ from .seed import seed_colleges
 @asynccontextmanager
 async def lifespan(_app: FastAPI):
     # Runs once when the server starts.
-    create_db_and_tables()
+    run_migrations()  # create/update tables (see migrations/)
     seed_colleges()
     yield
 

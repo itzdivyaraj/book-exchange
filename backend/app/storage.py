@@ -10,9 +10,10 @@ Two jobs:
          where the photo was taken (which could reveal a student's home)
   2. save_image() / delete_image(): put the file somewhere and remember where.
 
-WHY a separate file: right now photos go into a local "uploads/" folder.
-When we go live, only THIS file changes (to upload to Cloudinary instead).
-The rest of the app just calls save_image() and doesn't care where it goes.
+WHY a separate file: the rest of the app just calls save_image() / delete_image()
+and doesn't care where photos go. A setting picks the place:
+  STORAGE_BACKEND=local       -> the uploads/ folder (your laptop)
+  STORAGE_BACKEND=cloudinary  -> Cloudinary (the live site; Render's disk is wiped on restart)
 """
 import io
 import uuid
@@ -20,7 +21,7 @@ from pathlib import Path
 
 from PIL import Image, ImageOps, UnidentifiedImageError
 
-from .config import MAX_UPLOAD_MB, PUBLIC_BASE_URL, UPLOAD_DIR
+from .config import CLOUDINARY_URL, MAX_UPLOAD_MB, PUBLIC_BASE_URL, STORAGE_BACKEND, UPLOAD_DIR
 
 MAX_SIDE_PX = 1200
 # Refuse absurdly large images (a tiny file can claim to be 50,000 x 50,000 pixels
@@ -54,24 +55,69 @@ def process_image(raw: bytes) -> bytes:
     return out.getvalue()
 
 
-# ---------- Local folder storage (used now) ----------
+# ---------- Local folder (laptop) ----------
 def _upload_dir() -> Path:
     path = Path(UPLOAD_DIR)
     path.mkdir(parents=True, exist_ok=True)
     return path
 
 
-def save_image(jpeg_bytes: bytes) -> tuple[str, str]:
-    """Save the processed photo. Returns (url, storage_key)."""
+def _local_save(jpeg_bytes: bytes) -> tuple[str, str]:
     # Random file name: users can't guess other photos' names or overwrite them.
     key = f"{uuid.uuid4().hex}.jpg"
     (_upload_dir() / key).write_bytes(jpeg_bytes)
     return f"/uploads/{key}", key
 
 
-def delete_image(storage_key: str) -> None:
+def _local_delete(storage_key: str) -> None:
     path = _upload_dir() / Path(storage_key).name  # .name blocks tricks like "../../secret"
     path.unlink(missing_ok=True)
+
+
+# ---------- Cloudinary (live site) ----------
+def _cloudinary():
+    import cloudinary
+    import cloudinary.uploader
+
+    if not CLOUDINARY_URL:
+        raise RuntimeError("STORAGE_BACKEND=cloudinary but CLOUDINARY_URL is not set.")
+    cloudinary.config(cloudinary_url=CLOUDINARY_URL, secure=True)
+    return cloudinary.uploader
+
+
+def _cloudinary_save(jpeg_bytes: bytes) -> tuple[str, str]:
+    result = _cloudinary().upload(
+        io.BytesIO(jpeg_bytes),
+        folder="book-exchange",
+        public_id=uuid.uuid4().hex,
+        resource_type="image",
+    )
+    # secure_url = the https link browsers load. public_id = how we find it again to delete it.
+    return result["secure_url"], result["public_id"]
+
+
+def _cloudinary_delete(storage_key: str) -> None:
+    _cloudinary().destroy(storage_key, resource_type="image", invalidate=True)
+
+
+# ---------- what the rest of the app calls ----------
+def save_image(jpeg_bytes: bytes) -> tuple[str, str]:
+    """Save the processed photo. Returns (url, storage_key)."""
+    if STORAGE_BACKEND == "cloudinary":
+        return _cloudinary_save(jpeg_bytes)
+    return _local_save(jpeg_bytes)
+
+
+def delete_image(storage_key: str) -> None:
+    try:
+        if STORAGE_BACKEND == "cloudinary" and "/" in storage_key:  # Cloudinary ids look like "book-exchange/abc"
+            _cloudinary_delete(storage_key)
+        else:
+            _local_delete(storage_key)
+    except Exception:  # a photo that won't delete shouldn't stop deleting the listing
+        import logging
+
+        logging.getLogger("uvicorn.error").exception("Could not delete photo %s", storage_key)
 
 
 def public_url(url: str) -> str:

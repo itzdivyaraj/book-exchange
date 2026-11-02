@@ -14,6 +14,8 @@ Tables:
   Message       - one chat message (step 3)
   Report        - "this user/listing is a scam/spam/..." (step 3)
   Block         - "I don't want to hear from this person" (step 3)
+
+  EmailCode     - 6-digit codes for verifying email / resetting password (step 4)
 """
 from datetime import datetime, timezone
 from enum import Enum
@@ -53,6 +55,8 @@ class User(SQLModel, table=True):
     # NOT the password. The bcrypt scramble of it. See security.py.
     password_hash: str
     college_id: int = Field(foreign_key="college.id", index=True)
+    email_verified: bool = False   # step 4: must verify before listing/requesting/messaging
+    is_deleted: bool = False       # step 4: account deleted; personal data erased
     created_at: datetime = Field(default_factory=utcnow)
 
 
@@ -169,4 +173,22 @@ class Block(SQLModel, table=True):
     id: Optional[int] = Field(default=None, primary_key=True)
     blocker_id: int = Field(foreign_key="user.id", index=True)
     blocked_id: int = Field(foreign_key="user.id", index=True)
+    created_at: datetime = Field(default_factory=utcnow)
+
+
+# ======================= Step 4: email codes =======================
+
+class CodePurpose(str, Enum):
+    verify_email = "verify_email"
+    reset_password = "reset_password"
+
+
+class EmailCode(SQLModel, table=True):
+    id: Optional[int] = Field(default=None, primary_key=True)
+    user_id: int = Field(foreign_key="user.id", index=True)
+    purpose: CodePurpose
+    code_hash: str                  # fingerprint of the 6 digits, never the digits themselves
+    attempts: int = 0               # wrong guesses so far
+    expires_at: datetime
+    used_at: Optional[datetime] = None
     created_at: datetime = Field(default_factory=utcnow)

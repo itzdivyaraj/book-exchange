@@ -28,6 +28,8 @@ def hash_password(password: str) -> str:
 
 
 def verify_password(password: str, password_hash: str) -> bool:
+    if not password_hash:  # deleted accounts have no password at all
+        return False
     return bcrypt.checkpw(password.encode("utf-8"), password_hash.encode("utf-8"))
 
 
@@ -91,9 +93,31 @@ def get_current_user(
         db.commit()
         raise NOT_LOGGED_IN
     user = db.get(User, row.user_id)
-    if user is None:
+    if user is None or user.is_deleted:
         raise NOT_LOGGED_IN
     return user
+
+
+def get_verified_user(user: User = Depends(get_current_user)) -> User:
+    """
+    Like get_current_user, but ALSO requires a verified email.
+    Used for actions that affect other people: listing books, requesting, messaging.
+    """
+    if not user.email_verified:
+        raise HTTPException(
+            status.HTTP_403_FORBIDDEN,
+            "Please verify your email first. Check your inbox for the 6-digit code.",
+        )
+    return user
+
+
+def delete_all_sessions(db: Session, user_id: int, keep_token: str | None = None) -> None:
+    """Log out everywhere (optionally keeping the current device logged in)."""
+    keep = _fingerprint(keep_token) if keep_token else None
+    for row in db.exec(select(AuthSession).where(AuthSession.user_id == user_id)).all():
+        if row.token_hash != keep:
+            db.delete(row)
+    db.commit()
 
 
 def get_optional_user(

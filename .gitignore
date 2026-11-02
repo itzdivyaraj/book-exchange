@@ -10,7 +10,7 @@ venv/
 *.db
 uploads/
 
-# Node (frontend, next step)
+# Node (frontend)
 node_modules/
 dist/
 

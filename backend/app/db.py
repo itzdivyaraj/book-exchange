@@ -17,11 +17,21 @@ connect_args = {"check_same_thread": False} if DATABASE_URL.startswith("sqlite")
 engine = create_engine(DATABASE_URL, connect_args=connect_args, pool_pre_ping=True)
 
 
-def create_db_and_tables() -> None:
-    """Create any tables that don't exist yet (based on the classes in models.py)."""
+def run_migrations() -> None:
+    """
+    Bring the database's tables up to date by running any migrations it hasn't had yet
+    (the scripts in migrations/versions/). Safe to run on every startup: already-applied
+    migrations are skipped. Works the same on SQLite (laptop) and Postgres (Neon).
+    """
+    from pathlib import Path
+
+    from alembic import command
+    from alembic.config import Config
+
     from . import models  # noqa: F401  (importing registers the tables)
 
-    SQLModel.metadata.create_all(engine)
+    cfg = Config(str(Path(__file__).resolve().parent.parent / "alembic.ini"))
+    command.upgrade(cfg, "head")
 
 
 def get_session():

@@ -37,7 +37,7 @@ from ..schemas import (
     SellerOut,
     SortOption,
 )
-from ..security import get_current_user, get_optional_user
+from ..security import get_current_user, get_optional_user, get_verified_user
 from ..storage import BadImage, delete_image, process_image, public_url, save_image
 
 router = APIRouter(prefix="/books", tags=["books"])
@@ -197,7 +197,7 @@ def get_book(
 
 # ---------------------------------------------------------------- create / edit / delete
 @router.post("", response_model=BookOut, status_code=status.HTTP_201_CREATED)
-def create_book(data: BookCreate, user: User = Depends(get_current_user), db: Session = Depends(get_session)):
+def create_book(data: BookCreate, user: User = Depends(get_verified_user), db: Session = Depends(get_session)):
     # Catch accidental double listings: same seller, same title + author, still available.
     if not data.allow_duplicate:
         twin = db.exec(
@@ -278,18 +278,14 @@ def change_status(
     return to_book_out(db, book, user)
 
 
-@router.delete("/{book_id}", status_code=status.HTTP_204_NO_CONTENT)
-def delete_book(book_id: int, user: User = Depends(get_current_user), db: Session = Depends(get_session)):
-    book = get_own_book(db, book_id, user)
+def remove_book(db: Session, book: Book) -> None:
+    """
+    Delete a book and everything pointing to it. Doesn't commit (the caller does).
+    Order matters: things that POINT TO the book go first, then the book itself
+    (Postgres refuses to delete a row that other rows still point to).
+    Also used when an account is deleted (step 4).
+    """
     requests = db.exec(select(BuyRequest).where(BuyRequest.book_id == book.id)).all()
-    if any(r.status in (RequestStatus.accepted, RequestStatus.completed) for r in requests):
-        raise HTTPException(
-            status.HTTP_409_CONFLICT,
-            "This book has an accepted or completed deal, so it can't be deleted. "
-            "Cancel the deal first, or keep it as sold.",
-        )
-    # Delete in order: things that POINT TO the book first, then the book itself.
-    # (Postgres refuses to delete a row that other rows still point to.)
     for r in requests:
         for m in db.exec(select(Message).where(Message.request_id == r.id)).all():
             db.delete(m)
@@ -305,6 +301,19 @@ def delete_book(book_id: int, user: User = Depends(get_current_user), db: Sessio
         db.delete(img)
     db.flush()
     db.delete(book)
+
+
+@router.delete("/{book_id}", status_code=status.HTTP_204_NO_CONTENT)
+def delete_book(book_id: int, user: User = Depends(get_current_user), db: Session = Depends(get_session)):
+    book = get_own_book(db, book_id, user)
+    requests = db.exec(select(BuyRequest).where(BuyRequest.book_id == book.id)).all()
+    if any(r.status in (RequestStatus.accepted, RequestStatus.completed) for r in requests):
+        raise HTTPException(
+            status.HTTP_409_CONFLICT,
+            "This book has an accepted or completed deal, so it can't be deleted. "
+            "Cancel the deal first, or keep it as sold.",
+        )
+    remove_book(db, book)
     db.commit()
 
 
@@ -313,7 +322,7 @@ def delete_book(book_id: int, user: User = Depends(get_current_user), db: Sessio
 def upload_image(
     book_id: int,
     file: UploadFile = File(..., description=f"JPG, PNG or WEBP, max {MAX_UPLOAD_MB} MB"),
-    user: User = Depends(get_current_user),
+    user: User = Depends(get_verified_user),
     db: Session = Depends(get_session),
 ):
     book = get_own_book(db, book_id, user)

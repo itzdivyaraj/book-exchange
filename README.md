@@ -13,62 +13,51 @@ A web app where college students list their used textbooks and other students bu
 | 1 | Backend: login system + college list | ✅ done |
 | 2 | Backend: books (list, search, filter, photos, status) | ✅ done |
 | 3 | Backend: buy requests + chat + report/block + rate limits | ✅ done |
-| 4 | Email verification + forgot password + delete account | next |
-| 5 | Backend online (Render + Neon + Cloudinary) | |
-| 6 | React frontend | |
-| 7 | Frontend online (Vercel) + LinkedIn launch | |
+| 4 | Email verification + forgot password + delete account | ✅ done |
+| 5 | Backend ready to go online: migrations, Cloudinary, Brevo, `render.yaml` | ✅ code done |
+| 6 | React website | ✅ done |
+| 7 | Put it online (Neon + Cloudinary + Brevo + Render + Vercel) + LinkedIn launch | next: follow [DEPLOY.md](DEPLOY.md) |
 
 ---
 
 ## Run it on your laptop
 
-You need **Python 3.11 or newer**. Check with `python3 --version`. If you don't have it: https://www.python.org/downloads/
+You need **Python 3.11+** (`python3 --version`) and **Node.js 20+** (`node --version`; install from https://nodejs.org).
+Use two Terminal tabs: one for the backend, one for the website.
 
-Open a terminal **inside the `backend` folder**, then:
-
-**Mac**
+### Tab 1: backend (http://127.0.0.1:8000/docs)
 ```bash
-python3 -m venv .venv
-source .venv/bin/activate
-pip install -r requirements.txt
-cp .env.example .env
+cd backend
+python3 -m venv .venv            # first time only
+source .venv/bin/activate        # every time
+pip install -r requirements.txt  # first time, and when requirements.txt changes
+cp .env.example .env             # first time only
 uvicorn app.main:app --reload
 ```
+Verification and reset codes are **printed in this tab** (no real emails are sent locally).
 
-What each line does:
-- `python -m venv .venv`: creates a private box (a "virtual environment") for this project's packages, so they don't mix with other Python projects on your laptop.
-- `activate`: switches into that box. Your prompt will show `(.venv)`. Do this every time you open a new terminal.
-- `pip install -r requirements.txt`: installs everything listed in requirements.txt.
-- `copy .env.example .env`: creates your settings file.
-- `uvicorn app.main:app --reload`: starts the server. `--reload` restarts it automatically whenever you save a file.
-
-When you see `Uvicorn running on http://127.0.0.1:8000`, open **http://127.0.0.1:8000/docs** in your browser.
-
-### Try step 1 in /docs (no frontend needed yet)
-
-The `/docs` page is generated automatically by FastAPI. Every endpoint has a **Try it out** button.
-
-1. **GET /colleges**, then set `q` to `DU` and click Execute. University of Delhi comes back. Try `delhi univ`, `jnu` and `Mumbai Univeristy` (with the typo) too.
-2. **POST /auth/signup** with this body (use the `id` from step 1 for `college_id`):
-   ```json
-   {"name": "Shobhit", "email": "shobhit@test.com", "password": "secret123", "college_id": 1}
-   ```
-   The response contains a `token`. Copy it.
-3. Click the **Authorize 🔒** button at the top of the page, paste the token, and click Authorize.
-4. **GET /auth/me** shows your profile. Click Authorize → Logout and try again: you get a 401.
-5. **POST /colleges** with `{"name": "Delhi University"}` returns the existing college instead of creating a duplicate.
+### Tab 2: website (http://localhost:5173)
+```bash
+cd frontend
+npm install                      # first time, and when package.json changes
+cp .env.example .env             # first time only
+npm run dev
+```
 
 ### Run the automatic tests
 ```bash
-pytest -v
+cd backend && source .venv/bin/activate && pytest -v
 ```
-There are 40 checks: 14 for login and colleges (step 1), 14 for books and photos (step 2), 12 for requests, chat and safety (step 3). Run them after every change, so you know you haven't broken anything.
+47 checks: login and colleges (step 1), books and photos (step 2), requests, chat and safety (step 3), verification, passwords and account deletion (step 4). They also pass on Postgres: set `TEST_DATABASE_URL` to an empty Postgres database.
 
 ---
 
 ## How the code is organised
 
 ```
+render.yaml                  How Render builds and runs the backend
+DEPLOY.md                    Step by step: putting it online for ₹0
+frontend/                    The React website (see "Frontend" below)
 backend/
 ├── app/
 │   ├── main.py              Starts the app, CORS, plugs in routers, runs seeding on startup
@@ -78,9 +67,11 @@ backend/
 │   ├── schemas.py           Shape of data in/out of the API (never exposes password_hash)
 │   ├── security.py          bcrypt passwords + login tokens + get_current_user()
 │   ├── college_matching.py  "DU" = "Delhi University" = "University of Delhi" logic
-│   ├── storage.py           Photo safety (check, shrink, strip GPS) + where photos are saved
+│   ├── storage.py           Photo safety (check, shrink, strip GPS) + save locally or to Cloudinary
 │   ├── ratelimit.py         "Max N actions per M seconds" (login, requests, messages, reports)
 │   ├── blocking.py          Block checks shared by books and requests
+│   ├── codes.py             6-digit email codes: create, check, expiry, attempts
+│   ├── emailer.py           Sending emails (prints to Terminal locally; Brevo when live)
 │   ├── seed.py              Loads seed_colleges.json into the database
 │   ├── seed_colleges.json   Starter list of colleges + their nicknames (edit to add more)
 │   └── routers/
@@ -89,11 +80,13 @@ backend/
 │       ├── books.py         /books browse, create, edit, status, delete, photos
 │       ├── requests.py      /requests buy requests (the deal) + chat
 │       └── safety.py        /reports and /blocks
+├── alembic.ini, migrations/ Database migrations (run automatically on startup)
 ├── tests/
 │   ├── conftest.py          Shared test setup (temporary database + photo folder)
 │   ├── test_step1.py        Login + college checks
 │   ├── test_step2_books.py  Book, ownership, search and photo checks
-│   └── test_step3_requests.py  Deal flow, chat, unread, blocks, reports, rate limits
+│   ├── test_step3_requests.py  Deal flow, chat, unread, blocks, reports, rate limits
+│   └── test_step4_account.py   Verification, codes, password reset/change, account deletion
 ├── uploads/                 Photos saved locally (created automatically, not in Git)
 ├── requirements.txt         Python packages
 └── .env.example             Settings template
@@ -162,3 +155,50 @@ People outside a conversation get **404**, so they can't even tell it exists.
 | `POST /blocks/{user_id}` · `DELETE /blocks/{user_id}` · `GET /blocks` | Block / unblock / list. Blocks work both ways: no requests, no messages, listings hidden |
 
 **Rate limits** (answer **429** with a `Retry-After` header): 10 logins per 5 min per email · 10 buy requests per hour · 20 messages per minute · 10 reports per hour. Counters live in server memory (fine for one server; Redis if we ever run several).
+
+## Email verification, passwords, account (step 4)
+
+Locally, emails are **printed in the server's Terminal** (`EMAIL_BACKEND=console`), so no email account is needed for testing.
+
+| Endpoint | Login? | Does |
+|---|---|---|
+| `POST /auth/verify-email` | yes | 6-digit code from the email → `email_verified: true` |
+| `POST /auth/resend-verification` | yes | New code (max 1/minute, 5/hour); older codes stop working |
+| `POST /auth/forgot-password` | no | Emails a reset code. Same answer whether or not the email exists |
+| `POST /auth/reset-password` | no | Email + code + new password → logged out on every device |
+| `POST /auth/change-password` | yes | Old + new password → other devices logged out |
+| `POST /auth/delete-account` | yes | Password → personal data erased (see below) |
+
+**Codes:** 6 random digits, stored only as a fingerprint, valid 15 minutes, one use, 5 wrong tries max.
+
+**Unverified accounts** can log in and browse but can't list books, upload photos, request books or send messages (403).
+
+**Deleting an account** keeps other people's history readable but removes the person: name → "Deleted user", email freed, password destroyed, their chat messages → "[message deleted]", unsold listings and all photos deleted, open deals cancelled (books released), sessions/blocks/codes removed.
+
+## Frontend (step 6)
+
+```
+frontend/
+├── index.html, vite.config.js, package.json   Setup (Vite + React + Tailwind)
+├── vercel.json                                 Makes page links like /books/5 work on Vercel
+├── .env.example                                VITE_API_URL = where the backend is
+└── src/
+    ├── main.jsx, App.jsx    Start-up + which page shows for which address
+    ├── api.js               Every server call: adds the token, turns errors into readable text
+    ├── auth.jsx             Who's logged in; RequireAuth for login-only pages
+    ├── index.css            Colours and fonts
+    ├── components/          Layout (top bar + unread badge), BookCard, CollegePicker,
+    │                        ui (buttons, inputs, alerts…), Extras (pagination, report form)
+    └── pages/               Browse, BookDetail, BookForm (sell/edit + photos), MyListings,
+                             Messages (Inbox + Chat with polling), Account,
+                             AuthPages (login, signup, verify, forgot, reset)
+```
+
+## Migrations (step 5)
+
+Tables are created and updated by **migrations** in `backend/migrations/versions/`, which run automatically every time the server starts. After changing `models.py`:
+```bash
+cd backend && source .venv/bin/activate
+alembic revision --autogenerate -m "what changed"   # writes a new migration file
+```
+Read the new file, restart the server, and the change is applied without losing data. Commit the file with your code.

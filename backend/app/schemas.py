@@ -55,6 +55,7 @@ class UserOut(BaseModel):
     id: int
     name: str
     email: str
+    email_verified: bool
     college: CollegeOut
 
 
@@ -209,3 +210,28 @@ class BlockedUserOut(BaseModel):
     id: int
     name: str
     blocked_at: datetime
+
+
+# ======================= Step 4: verification, passwords, account =======================
+
+class VerifyEmailIn(BaseModel):
+    code: str = Field(min_length=6, max_length=6, pattern=r"^\d{6}$")
+
+
+class ForgotPasswordIn(BaseModel):
+    email: EmailStr
+
+
+class ResetPasswordIn(BaseModel):
+    email: EmailStr
+    code: str = Field(min_length=6, max_length=6, pattern=r"^\d{6}$")
+    new_password: str = Field(min_length=8, max_length=72)
+
+
+class ChangePasswordIn(BaseModel):
+    current_password: str
+    new_password: str = Field(min_length=8, max_length=72)
+
+
+class DeleteAccountIn(BaseModel):
+    password: str

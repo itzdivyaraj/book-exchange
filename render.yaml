@@ -1,0 +1,29 @@
+# Render "Blueprint": tells Render how to build and run the backend.
+# On Render: New + -> Blueprint -> pick this GitHub repo. It reads this file.
+# Values marked "sync: false" are SECRETS: Render asks you to paste them in its dashboard.
+# They never go in this file or on GitHub.
+services:
+  - type: web
+    name: book-exchange-api
+    runtime: python
+    plan: free
+    rootDir: backend
+    buildCommand: pip install -r requirements.txt
+    # Migrations run automatically on startup (see app/main.py), then the server starts.
+    startCommand: uvicorn app.main:app --host 0.0.0.0 --port $PORT
+    healthCheckPath: /
+    envVars:
+      - key: DATABASE_URL          # from Neon (Connection string)
+        sync: false
+      - key: FRONTEND_ORIGINS      # your Vercel address, e.g. https://book-exchange.vercel.app
+        sync: false
+      - key: STORAGE_BACKEND
+        value: cloudinary
+      - key: CLOUDINARY_URL        # from Cloudinary dashboard (API environment variable)
+        sync: false
+      - key: EMAIL_BACKEND
+        value: brevo
+      - key: BREVO_API_KEY         # from Brevo: SMTP & API -> API Keys
+        sync: false
+      - key: EMAIL_FROM            # e.g. Book Exchange <yourname@gmail.com> (verified in Brevo)
+        sync: false
