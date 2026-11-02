@@ -1,0 +1,20 @@
+# Python
+__pycache__/
+*.pyc
+.venv/
+venv/
+.pytest_cache/
+
+# Secrets and local data
+.env
+*.db
+uploads/
+
+# Node (frontend, next step)
+node_modules/
+dist/
+
+# OS / editor
+.DS_Store
+.vscode/
+.idea/
