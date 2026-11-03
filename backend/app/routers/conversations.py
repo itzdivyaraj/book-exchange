@@ -27,10 +27,8 @@ from ..storage import public_url
 router = APIRouter(prefix="/conversations", tags=["conversations"])
 
 WELCOME_NOTE = (
-    "Book Exchange only connects you. Agree on the price, pickup and payment between yourselves, "
-    "and never pay before you've seen the book. Share your phone number only if you're comfortable."
+    "Discuss the price, payment and delivery directly with each other.\nShare contact details only when you're comfortable."
 )
-
 
 # ---------------------------------------------------------------- helpers
 def add_system_message(db: Session, conversation_id: int, text: str) -> None:
