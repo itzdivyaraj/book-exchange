@@ -59,8 +59,8 @@ export default function Browse() {
       <section className="mb-6">
         <h1 className="text-3xl font-bold sm:text-4xl">Books listed by students</h1>
         <p className="mt-1 text-ink-soft">
-          <span className="block">Find books from students in your city or across India.</span>
-          <span className="block">Message the seller and agree on the price and pickup yourselves.</span>
+          <span className="block">Discover books from students across India.</span>
+          <span className="block">Contact sellers directly to agree on a price and pickup.</span>
         </p>
         <form
           className="mt-4 flex gap-2"

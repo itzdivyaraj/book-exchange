@@ -91,11 +91,11 @@ export default function BookDetail() {
         </div>
 
         <dl className="grid grid-cols-2 gap-x-4 gap-y-2 rounded-xl border border-line bg-surface p-4 text-sm">
-          <dt className="text-ink-soft">City</dt><dd className="font-medium">{book.city}</dd>
-          <dt className="text-ink-soft">College</dt><dd>{book.college.name}</dd>
-          <dt className="text-ink-soft">Seller</dt><dd>{book.seller.name}</dd>
           <dt className="text-ink-soft">Condition</dt><dd>{CONDITIONS[book.condition]}</dd>
           {book.subject && <><dt className="text-ink-soft">Subject</dt><dd>{book.subject}</dd></>}
+          <dt className="text-ink-soft">City</dt><dd className="font-medium">{book.city}</dd>
+          <dt className="text-ink-soft">Seller</dt><dd>{book.seller.name}</dd>
+          <dt className="text-ink-soft">College</dt><dd>{book.college.name}</dd>
           {book.semester && <><dt className="text-ink-soft">Semester</dt><dd>{book.semester}</dd></>}
           {book.isbn && <><dt className="text-ink-soft">ISBN</dt><dd>{book.isbn}</dd></>}
         </dl>
@@ -126,11 +126,6 @@ export default function BookDetail() {
           <Alert kind="info">Verify your email to message sellers. <Link to="/verify" className="font-semibold underline">Enter your code</Link></Alert>
         ) : (
           <Card className="space-y-2">
-            {otherCity && (
-              <Alert kind="info">
-                This book is in <b>{book.city}</b>, and your college is in {user.college.city}. You'll need to arrange the handover with the seller yourselves.
-              </Alert>
-            )}
             <p className="text-sm font-medium">Message the seller</p>
             <Textarea value={message} maxLength={1000} onChange={(e) => setMessage(e.target.value)} />
             <Button variant="accent" loading={busy} className="w-full" onClick={contact}>Message seller</Button>

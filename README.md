@@ -1,8 +1,10 @@
 # Book Exchange
 
-A listing site for used college textbooks. Students list the books they no longer need, others find them by college, city or title, and message the seller in the app. Price, pickup and payment are agreed between the two of them; the site only connects them.
+A student-to-student marketplace for buying and selling books. Whether it's a novel you've finished reading, a self-help book you no longer need, or an old textbook from your last semester, Book Exchange helps you find someone who'd love to read it next.
 
-Every semester a lot of perfectly good textbooks end up on shelves while juniors buy the same titles new. Book Exchange tries to keep those books moving between students, at student prices.
+Students can list their books, discover listings by title, college or city, and connect directly with sellers through in-app messaging. Buyers and sellers handle pricing, payments and delivery arrangements themselves.
+
+Give your books a second life instead of letting them gather dust on your shelves.
 
 ![Browse page](docs/browse.png)
 
@@ -12,11 +14,22 @@ Every semester a lot of perfectly good textbooks end up on shelves while juniors
 - **Colleges:** search-as-you-type picker. "DU", "Delhi University" and "University of Delhi" all resolve to the same college, and new colleges can be added with a "did you mean…?" check to avoid duplicates
 - **Listings:** title, author, price and pickup city (required), plus edition, subject, semester, condition, ISBN, description and up to 3 photos. Photos are resized and stripped of location data on upload. Sellers mark books sold, or available again
 - **Browse:** search by title, author, subject or ISBN; filter by college, city, semester, condition and price; sort and paginate. Anyone can browse without an account
-- **Messaging:** "Message seller" opens a chat about that book (messaging again reopens the same one), with an unread badge and new messages appearing without a refresh. Books in a different city from the buyer's college show a notice before messaging
+- **Messaging:** "Message seller" opens a chat about that book (messaging again reopens the same one), with an unread badge and new messages appearing without a refresh.
 - **Safety:** report listings or users, block users (works both ways), and rate limits on login, new chats and messages
 - **Dark mode:** follows the system setting, with a toggle in the top bar
 
-<img src="docs/book-dark.png" alt="A listing in dark mode" width="720">
+<br>
+
+<p>
+  <img src="docs/book-dark.png" alt="A listing in dark mode" width="720">
+</p>
+
+<br>
+
+<p>
+  <img src="docs/chat-convo.png" alt="A chat conversation in dark mode" width="720">
+</p>
+
 
 ## Tech stack
 
@@ -94,8 +107,6 @@ frontend/
     pages/               Browse, BookDetail, BookForm, MyListings, Messages, Account, auth pages
     components/          layout, book card, college picker, UI pieces
 render.yaml              Render config
-DEPLOY.md                deployment steps
-TESTING.md               manual test plan
 ```
 
 Changing a table means editing `models.py` and generating a migration:
@@ -106,7 +117,7 @@ alembic revision --autogenerate -m "describe the change"
 
 ## Deployment
 
-The whole stack runs on free tiers. See [DEPLOY.md](DEPLOY.md) for the step-by-step setup (Neon, Cloudinary, Brevo, Render, Vercel).
+The whole stack runs on free tiers of Neon, Cloudinary, Brevo, Render and Vercel.
 
 ## What's next
 

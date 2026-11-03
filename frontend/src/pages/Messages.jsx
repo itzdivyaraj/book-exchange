@@ -167,7 +167,12 @@ export function Chat() {
       <div className="flex-1 space-y-2 py-4" aria-live="polite">
         {messages.map((m) =>
           m.is_system ? (
-            <p key={m.id} className="mx-auto max-w-md rounded-lg bg-amber-50 px-3 py-2 text-center text-xs text-amber-900">{m.body}</p>
+            <p
+              key={m.id}
+              className="mx-auto max-w-md rounded-lg bg-amber-50 px-3 py-2 text-center text-xs text-amber-900 whitespace-pre-line"
+            >
+              {m.body}
+            </p>
           ) : (
             <div key={m.id} className={`flex ${m.is_mine ? 'justify-end' : 'justify-start'}`}>
               <div className={`max-w-[80%] rounded-2xl px-3 py-2 text-sm ${m.is_mine ? 'rounded-br-sm bg-ink text-paper' : 'rounded-bl-sm border border-line bg-surface'}`}>

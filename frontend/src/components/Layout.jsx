@@ -120,7 +120,7 @@ export default function Layout() {
       </main>
 
       <footer className="border-t border-line px-4 py-6 text-center text-xs text-ink-soft">
-        Book Exchange is a listing site for used textbooks. We don't handle payments or deliveries.
+        A marketplace where students buy and sell books directly. <br/>Buyers and sellers arrange payments and delivery themselves.
       </footer>
     </div>
   )

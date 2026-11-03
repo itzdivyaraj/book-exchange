@@ -87,7 +87,7 @@ export function Signup() {
   return (
     <AuthShell
       title="Join Book Exchange"
-      subtitle="List your old textbooks for free and find the ones you need from other students."
+      subtitle="List your books for free and find the ones you need from other students."
       footer={<>Already have an account? <Link className={link} to="/login">Log in</Link></>}
     >
       <form onSubmit={submit} className="space-y-4">
