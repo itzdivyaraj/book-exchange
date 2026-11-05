@@ -52,6 +52,8 @@ React (Vercel)  ──HTTPS + Bearer token──▶  FastAPI (Render)  ──▶
                                               └──▶ Brevo (verification / reset emails)
 ```
 
+![](./docs/working.png)
+
 The API is the only thing that talks to the database. Every write checks two things: who you are (session token → user) and whether you're allowed (only a book's seller can edit it, only the two people in a conversation can read it). The site deliberately stays out of the transaction itself: no payments, no deliveries, no deal tracking.
 
 ## Running it locally
